@@ -515,7 +515,7 @@ function App() {
                 </span>{" "}
                 {previewVariant === "clean"
                   ? "mantiene solo campiture, quote e misure per una postproduzione piu rapida."
-                  : "usa simbologie vettoriali piu ricche, con alberi derivati da misto.ai, icone da Balshi_Icon Database_2D.ai e apparato grafico spostato piu in basso."}
+                  : "usa simbologie vettoriali piu ricche, con alberi derivati da misto.ai, icone da Balshi_Icon Database_2D.ai e un impianto grafico tecnico ispirato a 260407_Benghazi Street Sections.ai."}
               </p>
             </CardContent>
             <CardFooter className="flex flex-wrap items-center gap-2">
@@ -619,7 +619,7 @@ function ElementEditorCard({
             />
             <div className="space-y-1">
               <CardTitle className="text-sm">
-                Fascia {index + 1} · {definition.label}
+                Fascia {index + 1} | {definition.label}
               </CardTitle>
               <CardDescription className="text-xs leading-5">
                 {definition.description}

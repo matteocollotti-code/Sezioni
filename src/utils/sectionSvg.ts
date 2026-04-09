@@ -14,7 +14,6 @@ interface SegmentLayout {
   width: number
 }
 
-const svgSerif = "'Fraunces', Georgia, serif"
 const svgSans = "'Manrope', 'Segoe UI', sans-serif"
 
 export function generateRoadSectionSvg(
@@ -124,6 +123,11 @@ export function generateRoadSectionSvg(
     metrics.totalWidth >= 18 ? 5 : metrics.totalWidth >= 10 ? 2 : 1
   const scaleBarWidth = toScaleMillimeters(scaleBarMeters, safeScale)
   const scaleBarX = round(canvasWidth - drawingX - scaleBarWidth)
+  const sectionFrameMarkup = renderLayer(
+    'section-frame',
+    'Telaio sezione',
+    renderSectionFrame(drawingX, totalWidthMm, sectionY, sectionBottom),
+  )
   const annotationMarkup = isClean
     ? ''
     : renderLayer(
@@ -146,18 +150,19 @@ export function generateRoadSectionSvg(
   ${renderLayer(
     'background',
     'Sfondo',
-    `<rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="16" fill="#fcfaf6" />
-  <rect x="6" y="6" width="${canvasWidth - 12}" height="${canvasHeight - 12}" rx="12" fill="none" stroke="#dcd6c9" stroke-width="0.6" />
-  <path d="M12 ${headerDividerY} H${canvasWidth - 12}" stroke="#e5dfd5" stroke-width="0.6" />`,
+    `<rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" fill="#ffffff" />
+  <rect x="6" y="6" width="${canvasWidth - 12}" height="${canvasHeight - 12}" fill="none" stroke="#d4d7da" stroke-width="0.6" />
+  <path d="M12 ${headerDividerY} H${canvasWidth - 12}" stroke="#cfd3d6" stroke-width="0.7" />`,
   )}
   ${renderLayer(
     'header',
     'Testata',
-    `<text x="${drawingX}" y="18" font-family="${svgSerif}" font-size="10" font-weight="700" fill="#1f302e">${escapeXml(projectTitle)}</text>
-  <text x="${drawingX}" y="27" font-family="${svgSans}" font-size="4.1" letter-spacing="0.28" fill="#63706d">${escapeXml(subtitle)}</text>
-  <text x="${canvasWidth - drawingX}" y="18" text-anchor="end" font-family="${svgSans}" font-size="4.6" font-weight="700" fill="#20312f">${escapeXml(formatMeters(metrics.totalWidth))}</text>
-  <text x="${canvasWidth - drawingX}" y="27" text-anchor="end" font-family="${svgSans}" font-size="4.1" fill="#63706d">${escapeXml(legendSummary)}</text>`,
+    `<text x="${drawingX}" y="16" font-family="${svgSans}" font-size="4.2" font-weight="800" letter-spacing="0.18" fill="#1f2528">${escapeXml(projectTitle.toUpperCase())}</text>
+  <text x="${drawingX}" y="25.2" font-family="${svgSans}" font-size="3.6" letter-spacing="0.2" fill="#6a7379">${escapeXml(subtitle)} | ref. Benghazi Street Sections</text>
+  <text x="${canvasWidth - drawingX}" y="16" text-anchor="end" font-family="${svgSans}" font-size="4.2" font-weight="700" letter-spacing="0.12" fill="#1f2528">${escapeXml(formatMeters(metrics.totalWidth))}</text>
+  <text x="${canvasWidth - drawingX}" y="25.2" text-anchor="end" font-family="${svgSans}" font-size="3.5" fill="#6a7379">${escapeXml(legendSummary)}</text>`,
   )}
+  ${sectionFrameMarkup}
   ${elementLayersMarkup}
   ${renderLayer('dimensions-elements', 'Quote elementi', segmentDimensions)}
   ${renderLayer(
@@ -216,7 +221,7 @@ function renderSegment(
       : ''
 
   return `<g id="segment-${segment.sourceIndex + 1}" data-segment-index="${segment.sourceIndex + 1}" data-type="${escapeXml(segment.element.type)}">
-    <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="3.8" fill="${definition.fill}" stroke="${definition.stroke}" stroke-width="0.7" />
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="0.8" fill="${getExportFill(definition.fill, variant)}" stroke="${getExportStroke(definition.stroke, variant)}" stroke-width="0.7" />
     ${treeMarkup}
   </g>`
 }
@@ -271,7 +276,7 @@ function renderSegmentAnnotations(
 ) {
   const guideMarkup = `<path d="M12 ${guideY} H${round(
     layouts.length > 0 ? layouts[layouts.length - 1].x + layouts[layouts.length - 1].width + 12 : 248,
-  )}" stroke="#e5dfd5" stroke-width="0.6" />`
+  )}" stroke="#d3d7da" stroke-width="0.6" />`
 
   const itemsMarkup = layouts
     .map((segment) => renderSegmentAnnotation(segment, iconY, labelY))
@@ -297,6 +302,7 @@ function renderSegmentAnnotation(
       : ''
 
   return `<g data-annotation-index="${segment.sourceIndex + 1}">
+    <line x1="${centerX}" y1="${round(iconY - 8)}" x2="${centerX}" y2="${round(iconY - 2.4)}" stroke="#c8cdd1" stroke-width="0.55" />
     ${renderLegendIcon(segment, centerX, iconY)}
     <text x="${centerX}" y="${labelY}" text-anchor="middle" font-family="${svgSans}" font-size="3.5" font-weight="700" fill="#32403d">
       ${escapeXml(label)}
@@ -312,11 +318,11 @@ function renderSegmentAnnotation(
 function renderLegendIcon(segment: SegmentLayout, centerX: number, centerY: number) {
   switch (segment.element.type) {
     case 'lane':
-      return `<line x1="${round(centerX - 7)}" y1="${centerY}" x2="${round(centerX + 7)}" y2="${centerY}" stroke="#5f696f" stroke-width="1.2" stroke-dasharray="4 3" />`
+      return `<line x1="${round(centerX - 7)}" y1="${centerY}" x2="${round(centerX + 7)}" y2="${centerY}" stroke="#32373b" stroke-width="1.05" stroke-dasharray="4 2.8" />`
     case 'cycleway':
       return renderBikeIcon(centerX, centerY - 2)
     case 'sidewalk':
-      return `<g stroke="#8a7d69" stroke-width="0.8">
+      return `<g stroke="#44494d" stroke-width="0.8">
         <line x1="${round(centerX - 4)}" y1="${round(centerY - 4)}" x2="${round(centerX - 4)}" y2="${round(centerY + 4)}" />
         <line x1="${centerX}" y1="${round(centerY - 4)}" x2="${centerX}" y2="${round(centerY + 4)}" />
         <line x1="${round(centerX + 4)}" y1="${round(centerY - 4)}" x2="${round(centerX + 4)}" y2="${round(centerY + 4)}" />
@@ -337,31 +343,31 @@ function renderLegendIcon(segment: SegmentLayout, centerX: number, centerY: numb
         centerX,
         centerY + 1,
         11,
-        '#527052',
+        '#424b40',
       )
     case 'lawn':
-      return `<path d="M${round(centerX - 4)} ${round(centerY + 4)} l1.6 -5 l1.6 5 l1.4 -4.1 l1.4 4.1 l1.6 -5 l1.7 5" fill="none" stroke="#668455" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" />`
+      return `<path d="M${round(centerX - 4)} ${round(centerY + 4)} l1.6 -5 l1.6 5 l1.4 -4.1 l1.4 4.1 l1.6 -5 l1.7 5" fill="none" stroke="#465247" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" />`
     case 'bioswale':
-      return `<path d="M${round(centerX - 8)} ${round(centerY + 2)} C${round(centerX - 3)} ${round(centerY - 4)}, ${round(centerX + 1)} ${round(centerY + 5)}, ${round(centerX + 8)} ${round(centerY - 1)}" fill="none" stroke="#628867" stroke-width="1.1" stroke-linecap="round" />`
+      return `<path d="M${round(centerX - 8)} ${round(centerY + 2)} C${round(centerX - 3)} ${round(centerY - 4)}, ${round(centerX + 1)} ${round(centerY + 5)}, ${round(centerX + 8)} ${round(centerY - 1)}" fill="none" stroke="#49574c" stroke-width="1.05" stroke-linecap="round" />`
     case 'streetFurniture':
       return renderImportedIcon(
         urbanIconSymbols.streetFurniture,
         centerX,
         centerY + 2,
         10,
-        '#815f44',
+        '#47413e',
       )
     case 'parking':
-      return `<text x="${centerX}" y="${round(centerY + 2)}" text-anchor="middle" font-family="${svgSans}" font-size="6" font-weight="700" fill="#5d6870">P</text>`
+      return `<text x="${centerX}" y="${round(centerY + 2)}" text-anchor="middle" font-family="${svgSans}" font-size="5.6" font-weight="700" fill="#41484d">P</text>`
     case 'median':
-      return `<path d="M${round(centerX - 5)} ${round(centerY - 4)} l4 6 l-4 6 M${round(centerX + 1)} ${round(centerY - 4)} l4 6 l-4 6" fill="none" stroke="#ae9b7f" stroke-width="0.9" />`
+      return `<path d="M${round(centerX - 5)} ${round(centerY - 4)} l4 6 l-4 6 M${round(centerX + 1)} ${round(centerY - 4)} l4 6 l-4 6" fill="none" stroke="#5a5a52" stroke-width="0.9" />`
     default:
       return ''
   }
 }
 
 function renderBikeIcon(centerX: number, centerY: number) {
-  return `<g transform="translate(${centerX} ${centerY})" stroke="#23584f" stroke-width="0.9" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  return `<g transform="translate(${centerX} ${centerY})" stroke="#394246" stroke-width="0.9" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="-4.3" cy="3.2" r="2.4" />
     <circle cx="4.3" cy="3.2" r="2.4" />
     <path d="M-4.2 3.2 L-0.4 -1.4 L2.2 3.2 M-0.4 -1.4 L3 -1.4 L4.4 3.2 M-0.2 -1.2 L-2.6 3.2" />
@@ -384,6 +390,24 @@ function renderImportedIcon(
 
   return `<g data-icon-source="${escapeXml(symbol.name)}" transform="translate(${x} ${y}) scale(${scale} ${scale})">
     <path d="${symbol.path}" fill="${fill}" opacity="0.9" />
+  </g>`
+}
+
+function renderSectionFrame(
+  drawingX: number,
+  totalWidthMm: number,
+  sectionY: number,
+  sectionBottom: number,
+) {
+  const endX = round(drawingX + totalWidthMm)
+  const topY = round(sectionY)
+  const bottomY = round(sectionBottom)
+
+  return `<g>
+    <line x1="${drawingX}" y1="${topY}" x2="${endX}" y2="${topY}" stroke="#34393d" stroke-width="0.9" />
+    <line x1="${drawingX}" y1="${bottomY}" x2="${endX}" y2="${bottomY}" stroke="#34393d" stroke-width="0.9" />
+    <line x1="${drawingX}" y1="${round(topY - 2.4)}" x2="${drawingX}" y2="${round(bottomY + 2.4)}" stroke="#34393d" stroke-width="0.7" />
+    <line x1="${endX}" y1="${round(topY - 2.4)}" x2="${endX}" y2="${round(bottomY + 2.4)}" stroke="#34393d" stroke-width="0.7" />
   </g>`
 }
 
@@ -475,4 +499,43 @@ function slugify(value: string) {
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function getExportFill(fill: string, variant: ExportVariant) {
+  return mixHex(fill, '#ffffff', variant === 'clean' ? 0.36 : 0.22)
+}
+
+function getExportStroke(stroke: string, variant: ExportVariant) {
+  return mixHex(stroke, '#1f2528', variant === 'clean' ? 0.18 : 0.1)
+}
+
+function mixHex(colorA: string, colorB: string, amount: number) {
+  const a = parseHexColor(colorA)
+  const b = parseHexColor(colorB)
+
+  if (!a || !b) {
+    return colorA
+  }
+
+  const t = clampNumber(amount, 0, 1)
+  const mix = (valueA: number, valueB: number) =>
+    Math.round(valueA + (valueB - valueA) * t)
+
+  return `#${[mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2])]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function parseHexColor(value: string) {
+  const normalized = value.trim().replace('#', '')
+
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return null
+  }
+
+  return [
+    Number.parseInt(normalized.slice(0, 2), 16),
+    Number.parseInt(normalized.slice(2, 4), 16),
+    Number.parseInt(normalized.slice(4, 6), 16),
+  ]
 }
