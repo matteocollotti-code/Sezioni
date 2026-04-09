@@ -32,6 +32,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -582,20 +583,33 @@ function App() {
                     `Clean` mostra l'SVG tecnico. `Illustrata` genera un render AI on demand.
                   </p>
                 </div>
-                <ToggleGroup
-                  type="single"
-                  variant="outline"
-                  size="sm"
-                  value={previewVariant}
-                  onValueChange={(value) =>
-                    (value === "illustrated" || value === "clean") &&
-                    setPreviewVariant(value)
-                  }
-                  className="flex flex-wrap gap-2"
-                >
-                  <ToggleGroupItem value="illustrated">Illustrata</ToggleGroupItem>
-                  <ToggleGroupItem value="clean">Clean</ToggleGroupItem>
-                </ToggleGroup>
+                <div className="flex items-center gap-3 rounded-full border border-border/70 bg-background/88 px-3 py-2 shadow-sm">
+                  <span
+                    className={
+                      previewVariant === "clean"
+                        ? "text-sm font-semibold text-foreground"
+                        : "text-sm text-muted-foreground"
+                    }
+                  >
+                    Clean
+                  </span>
+                  <Switch
+                    checked={previewVariant === "illustrated"}
+                    onCheckedChange={(checked) =>
+                      setPreviewVariant(checked ? "illustrated" : "clean")
+                    }
+                    aria-label="Passa da Clean a Illustrata"
+                  />
+                  <span
+                    className={
+                      previewVariant === "illustrated"
+                        ? "text-sm font-semibold text-foreground"
+                        : "text-sm text-muted-foreground"
+                    }
+                  >
+                    Illustrata
+                  </span>
+                </div>
               </div>
             ) : null}
 
