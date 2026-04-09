@@ -61,8 +61,6 @@ export interface ExportModel {
   projectTitle: string
   scale: number
   elements: SectionElement[]
-  leftBuildingHeight: number
-  rightBuildingHeight: number
 }
 
 export type ExportVariant = 'illustrated' | 'clean'

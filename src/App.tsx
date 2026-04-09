@@ -55,18 +55,12 @@ import { InteractiveSectionStrip } from "./components/section-editor/Interactive
 import { SelectionInspector } from "./components/section-editor/SelectionInspector"
 
 const defaultPreset = sectionPresets[0]
-const defaultBuildingHeight = 18
 const defaultStreetLength = 120
 
 function buildPresetElements(preset: SectionPreset) {
   return preset.elements.map((item) =>
     createSectionElement(item.type, item.width, item.treeHeight)
   )
-}
-
-function clampBuildingHeight(value: number) {
-  const normalizedValue = Number.isFinite(value) ? value : defaultBuildingHeight
-  return Number(Math.max(0, normalizedValue).toFixed(1))
 }
 
 function clampStreetLength(value: number) {
@@ -95,8 +89,6 @@ function App() {
   const [activeElementId, setActiveElementId] = useState<string | null>(null)
   const [summaryMode, setSummaryMode] = useState<"width" | "area">("width")
   const [streetLength, setStreetLength] = useState(defaultStreetLength)
-  const [leftBuildingHeight, setLeftBuildingHeight] = useState(defaultBuildingHeight)
-  const [rightBuildingHeight, setRightBuildingHeight] = useState(defaultBuildingHeight)
 
   const resolvedActiveElementId =
     activeElementId && elements.some((element) => element.id === activeElementId)
@@ -113,10 +105,8 @@ function App() {
       projectTitle,
       scale,
       elements,
-      leftBuildingHeight,
-      rightBuildingHeight,
     }),
-    [elements, leftBuildingHeight, projectTitle, rightBuildingHeight, scale]
+    [elements, projectTitle, scale]
   )
   const deferredModel = useDeferredValue(exportModel)
   const svgMarkup = useMemo(
@@ -380,51 +370,6 @@ function App() {
             </div>
           </FieldGroup>
 
-          <section className="rounded-[28px] border border-border/70 bg-primary/5 p-4 sm:p-5">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                    Contesto laterale
-                  </div>
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    Imposta l&apos;altezza degli edifici ai due lati della tavola. Se porti un lato a 0 m, quel fronte scompare.
-                  </p>
-                </div>
-                <Badge variant="outline" className="self-start sm:self-auto">
-                  profilo urbano
-                </Badge>
-              </div>
-
-              <FieldGroup className="grid gap-4 lg:grid-cols-2">
-                <DimensionRangeField
-                  id="left-building-height"
-                  label="Edificio sinistro"
-                  value={leftBuildingHeight}
-                  min={0}
-                  max={leftBuildingHeight}
-                  step={0.5}
-                  unitLabel="m"
-                  allowUnlimited
-                  showTicks
-                  onChange={(value) => setLeftBuildingHeight(clampBuildingHeight(value))}
-                />
-                <DimensionRangeField
-                  id="right-building-height"
-                  label="Edificio destro"
-                  value={rightBuildingHeight}
-                  min={0}
-                  max={rightBuildingHeight}
-                  step={0.5}
-                  unitLabel="m"
-                  allowUnlimited
-                  showTicks
-                  onChange={(value) => setRightBuildingHeight(clampBuildingHeight(value))}
-                />
-              </FieldGroup>
-            </div>
-          </section>
-
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -556,7 +501,7 @@ function App() {
               <div className="space-y-1">
                 <h2 className="text-xl font-semibold text-foreground">Anteprima SVG</h2>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  La tavola vettoriale resta sincronizzata con la sezione cliccabile e con il contesto urbano laterale.
+                  La tavola vettoriale resta sincronizzata con la sezione cliccabile.
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:items-end">
@@ -599,9 +544,6 @@ function App() {
               </Badge>
               <Badge variant="outline">1:{scale}</Badge>
               <Badge variant="outline">{elements.length} fasce</Badge>
-              <Badge variant="outline">
-                sx {formatMeters(leftBuildingHeight)} | dx {formatMeters(rightBuildingHeight)}
-              </Badge>
               {isSummaryVisible && isSurfaceSummary ? (
                 <Badge variant="outline">lunghezza {formatMeters(streetLength)}</Badge>
               ) : null}

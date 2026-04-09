@@ -14,15 +14,6 @@ interface SegmentLayout {
   width: number
 }
 
-interface BuildingContext {
-  side: "left" | "right"
-  label: string
-  height: number
-  heightMm: number
-  x: number
-  width: number
-}
-
 const svgSans = "'Manrope', 'Segoe UI', sans-serif"
 
 const svgPalette = {
@@ -54,32 +45,18 @@ const svgPalette = {
   parkingMark: "#eef4fb",
   medianPost: "#41576f",
   shadow: "#102132",
-  building: "#203549",
-  buildingAccent: "#3c536c",
-  buildingWindow: "#edf4fb",
 }
 
 export function generateRoadSectionSvg(
-  {
-    projectTitle,
-    scale,
-    elements,
-    leftBuildingHeight,
-    rightBuildingHeight,
-  }: ExportModel,
+  { projectTitle, scale, elements }: ExportModel,
   variant: ExportVariant = "illustrated"
 ) {
   const safeScale = Math.max(25, scale)
   const metrics = calculateMetrics(elements)
   const totalWidthMm = toScaleMillimeters(metrics.totalWidth, safeScale)
   const outerMargin = 14
-  const contextGap = 8
-  const minSideContextWidth = 28
   const canvasWidth = round(
-    Math.max(
-      totalWidthMm + outerMargin * 2 + (minSideContextWidth + contextGap) * 2,
-      340
-    )
+    Math.max(totalWidthMm + outerMargin * 2, 300)
   )
   const drawingX = round((canvasWidth - totalWidthMm) / 2)
   const sectionHeight = 44
@@ -99,8 +76,6 @@ export function generateRoadSectionSvg(
     return layout
   })
 
-  const normalizedLeftBuildingHeight = clampNumber(leftBuildingHeight, 0, 999)
-  const normalizedRightBuildingHeight = clampNumber(rightBuildingHeight, 0, 999)
   const maxTreeHeightMm = layouts.reduce((maxHeight, segment) => {
     if (segment.element.type !== "treeStrip") {
       return maxHeight
@@ -109,25 +84,13 @@ export function generateRoadSectionSvg(
     return Math.max(maxHeight, getTreeHeightMm(segment.element, safeScale))
   }, 0)
 
-  const leftBuildingHeightMm = toScaleMillimeters(
-    normalizedLeftBuildingHeight,
-    safeScale
-  )
-  const rightBuildingHeightMm = toScaleMillimeters(
-    normalizedRightBuildingHeight,
-    safeScale
-  )
   const sectionBottom = round(
-    Math.max(
-      108,
-      headerDividerY + Math.max(maxTreeHeightMm, leftBuildingHeightMm, rightBuildingHeightMm) + 22
-    )
+    Math.max(108, headerDividerY + maxTreeHeightMm + 22)
   )
   const sectionY = round(sectionBottom - sectionHeight)
   const segmentDimensionY = round(sectionBottom + 16)
   const totalDimensionY = round(segmentDimensionY + 18)
-  const contextDimensionY = round(totalDimensionY + 18)
-  const scaleBarY = round(contextDimensionY + 14)
+  const scaleBarY = round(totalDimensionY + 14)
   const isClean = variant === "clean"
   const annotationGuideY = round(scaleBarY + 10)
   const annotationIconY = round(annotationGuideY + 9)
@@ -148,30 +111,6 @@ export function generateRoadSectionSvg(
   const usedTypes = paletteOrder.filter((type) =>
     layouts.some((segment) => segment.element.type === type)
   )
-
-  const leftBuildingWidth = round(Math.max(16, drawingX - outerMargin - contextGap))
-  const rightBuildingX = round(drawingX + totalWidthMm + contextGap)
-  const rightBuildingWidth = round(
-    Math.max(16, canvasWidth - outerMargin - rightBuildingX)
-  )
-  const buildings: BuildingContext[] = [
-    {
-      side: "left",
-      label: "Edificio sinistro",
-      height: normalizedLeftBuildingHeight,
-      heightMm: leftBuildingHeightMm,
-      x: outerMargin,
-      width: leftBuildingWidth,
-    },
-    {
-      side: "right",
-      label: "Edificio destro",
-      height: normalizedRightBuildingHeight,
-      heightMm: rightBuildingHeightMm,
-      x: rightBuildingX,
-      width: rightBuildingWidth,
-    },
-  ]
 
   const elementLayersMarkup = usedTypes
     .map((type) => {
@@ -212,18 +151,6 @@ export function generateRoadSectionSvg(
     )
     .join("")
 
-  const contextDimensions = buildings
-    .filter((building) => building.height > 0)
-    .map((building) =>
-      renderVerticalDimensionLine(
-        getBuildingDimensionX(building, contextGap),
-        round(sectionBottom - building.heightMm),
-        sectionBottom,
-        `H ${formatMeters(building.height)}`
-      )
-    )
-    .join("")
-
   const legendParts = [
     `${metrics.totalWidth.toFixed(1)} m complessivi`,
     `${metrics.greenWidth.toFixed(1)} m di verde`,
@@ -231,15 +158,6 @@ export function generateRoadSectionSvg(
 
   if (tallestTreeMeters > 0) {
     legendParts.push(`alberi fino a ${tallestTreeMeters.toFixed(1)} m`)
-  }
-
-  const tallestBuildingMeters = Math.max(
-    normalizedLeftBuildingHeight,
-    normalizedRightBuildingHeight
-  )
-
-  if (tallestBuildingMeters > 0) {
-    legendParts.push(`edifici fino a ${tallestBuildingMeters.toFixed(1)} m`)
   }
 
   const legendSummary = legendParts.join(" - ").replaceAll(".", ",")
@@ -290,16 +208,6 @@ export function generateRoadSectionSvg(
   <text x="${canvasWidth - drawingX}" y="25.2" text-anchor="end" font-family="${svgSans}" font-size="3.5" fill="${svgPalette.inkSoft}">${escapeXml(legendSummary)}</text>`
   )}
   ${renderLayer(
-    "building-left",
-    "Edificio sinistro",
-    renderBuildingMass(buildings[0], sectionBottom, variant)
-  )}
-  ${renderLayer(
-    "building-right",
-    "Edificio destro",
-    renderBuildingMass(buildings[1], sectionBottom, variant)
-  )}
-  ${renderLayer(
     "section-frame",
     "Telaio sezione",
     renderSectionFrame(drawingX, totalWidthMm, sectionY, sectionBottom)
@@ -317,7 +225,6 @@ export function generateRoadSectionSvg(
       formatMeters(metrics.totalWidth)
     )
   )}
-  ${renderLayer("dimensions-context", "Quote contesto", contextDimensions)}
   ${renderLayer(
     "scale-bar",
     "Barra di scala",
@@ -758,74 +665,6 @@ function renderTreeDetail(
   </g>`
 }
 
-function renderBuildingMass(
-  building: BuildingContext,
-  sectionBottom: number,
-  variant: ExportVariant
-) {
-  if (building.height <= 0 || building.heightMm <= 0) {
-    return ""
-  }
-
-  const x = round(building.x)
-  const width = round(building.width)
-  const baseY = round(sectionBottom)
-  const topY = round(baseY - building.heightMm)
-  const setbackHeight = clampNumber(round(building.heightMm * 0.12), 4, 12)
-  const podiumHeight = clampNumber(round(building.heightMm * 0.08), 2.4, 7)
-  const setbackWidth = round(width * 0.56)
-  const setbackX = round(x + (width - setbackWidth) / 2)
-  const bodyY = round(topY + setbackHeight)
-  const bodyHeight = round(baseY - bodyY)
-  const facadeFill = variant === "clean" ? "#dfe7ef" : svgPalette.building
-  const accentFill = variant === "clean" ? "#eef3f8" : svgPalette.buildingAccent
-  const stroke = variant === "clean" ? "#7d90a5" : "#17273b"
-  const windowsMarkup =
-    variant === "clean"
-      ? ""
-      : renderBuildingWindows(
-          x,
-          bodyY + 3,
-          width,
-          Math.max(bodyHeight - podiumHeight - 6, 10)
-        )
-
-  return `<g data-building-side="${building.side}">
-    <rect x="${x}" y="${round(baseY - podiumHeight)}" width="${width}" height="${podiumHeight}" fill="${accentFill}" stroke="${stroke}" stroke-width="0.55" />
-    <rect x="${x}" y="${bodyY}" width="${width}" height="${bodyHeight - podiumHeight}" fill="${facadeFill}" stroke="${stroke}" stroke-width="0.7" />
-    <rect x="${setbackX}" y="${topY}" width="${setbackWidth}" height="${setbackHeight + 1.4}" fill="${accentFill}" stroke="${stroke}" stroke-width="0.65" />
-    <line x1="${x}" y1="${baseY}" x2="${x + width}" y2="${baseY}" stroke="${stroke}" stroke-width="0.7" />
-    ${windowsMarkup}
-  </g>`
-}
-
-function renderBuildingWindows(
-  x: number,
-  y: number,
-  width: number,
-  height: number
-) {
-  const columns = Math.max(2, Math.floor(width / 6))
-  const rows = Math.max(3, Math.floor(height / 8))
-  const windowWidth = round(Math.max(1.2, Math.min(2.6, width / (columns * 1.75))))
-  const windowHeight = round(Math.max(1.4, Math.min(3.2, height / (rows * 1.9))))
-  const gapX = round((width - columns * windowWidth) / (columns + 1))
-  const gapY = round((height - rows * windowHeight) / (rows + 1))
-  const windows: string[] = []
-
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const windowX = round(x + gapX + column * (windowWidth + gapX))
-      const windowY = round(y + gapY + row * (windowHeight + gapY))
-      windows.push(
-        `<rect x="${windowX}" y="${windowY}" width="${windowWidth}" height="${windowHeight}" rx="0.35" fill="${svgPalette.buildingWindow}" opacity="0.78" />`
-      )
-    }
-  }
-
-  return windows.join("")
-}
-
 function renderTreeIllustration(
   illustration: (typeof treeIllustrations)[number],
   x: number,
@@ -1071,12 +910,6 @@ function renderLayer(id: string, label: string, content: string) {
   )}" inkscape:groupmode="layer" inkscape:label="${escapeXml(label)}">
     ${content}
   </g>`
-}
-
-function getBuildingDimensionX(building: BuildingContext, gap: number) {
-  return building.side === "left"
-    ? round(building.x + building.width + gap / 2)
-    : round(building.x - gap / 2)
 }
 
 function getTreeHeightMeters(element: SectionElement) {
