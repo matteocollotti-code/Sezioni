@@ -96,7 +96,7 @@ export default async function handler(req, res) {
         prompt,
         size: "1536x1024",
         quality: "medium",
-        background: "white",
+        background: "opaque",
       }),
     })
 
