@@ -627,19 +627,9 @@ function renderTreeDetail(
   const treeHeightMeters = getTreeHeightMeters(segment.element)
   const treeHeightMm = toScaleMillimeters(treeHeightMeters, scale)
   const groundY = round(sectionBottom - 2)
-  const topY = round(groundY - treeHeightMm)
-  const dimensionX = round(
-    segment.x + Math.max(5, Math.min(segment.width - 5, segment.width * 0.84))
-  )
-  const dimensionMarkup = renderVerticalDimensionLine(
-    dimensionX,
-    topY,
-    groundY,
-    `H ${formatMeters(treeHeightMeters)}`
-  )
 
   if (variant === "clean") {
-    return dimensionMarkup
+    return ""
   }
 
   const treeVariant = segment.sourceIndex % 3
@@ -657,7 +647,6 @@ function renderTreeDetail(
     sectionBottom - 4.1
   )}" rx="${round(Math.max(segment.width * 0.36, 3.2))}" ry="1.9" fill="${svgPalette.shadow}" opacity="0.12" />
     ${renderVectorTree(treeVariant, treeCenterX, groundY, treeWidthMm, treeHeightMm)}
-    ${dimensionMarkup}
   </g>`
 }
 
@@ -951,24 +940,6 @@ function renderDimensionLine(
     <text x="${centerX}" y="${round(
     dimensionY - 2.8
   )}" text-anchor="middle" font-family="${svgSans}" font-size="3.8" fill="${svgPalette.inkSoft}">${safeLabel}</text>
-  </g>`
-}
-
-function renderVerticalDimensionLine(
-  x: number,
-  y1: number,
-  y2: number,
-  label: string
-) {
-  const safeLabel = escapeXml(label)
-  const centerY = round((y1 + y2) / 2)
-  const labelX = round(x + 6)
-
-  return `<g>
-    <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${svgPalette.dimension}" stroke-width="0.9" marker-start="url(#arrow-start)" marker-end="url(#arrow-end)" />
-    <line x1="${x - 2.8}" y1="${y1}" x2="${x + 2.8}" y2="${y1}" stroke="${svgPalette.guide}" stroke-width="0.7" />
-    <line x1="${x - 2.8}" y1="${y2}" x2="${x + 2.8}" y2="${y2}" stroke="${svgPalette.guide}" stroke-width="0.7" />
-    <text x="${labelX}" y="${centerY}" transform="rotate(-90 ${labelX} ${centerY})" text-anchor="middle" font-family="${svgSans}" font-size="3.8" fill="${svgPalette.inkSoft}">${safeLabel}</text>
   </g>`
 }
 
