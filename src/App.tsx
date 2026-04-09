@@ -495,14 +495,14 @@ function App() {
                   className="flex flex-wrap gap-2"
                 >
                   <ToggleGroupItem value="illustrated">Illustrata</ToggleGroupItem>
-                  <ToggleGroupItem value="clean">Clean</ToggleGroupItem>
+                <ToggleGroupItem value="clean">Clean</ToggleGroupItem>
                 </ToggleGroup>
-              <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant={isSummaryVisible ? "secondary" : "outline"}
                     onClick={() => setIsSummaryVisible((current) => !current)}
                   >
-                    Summary
+                    {isSummaryVisible ? "Disegno" : "Summary"}
                   </Button>
                   <Button onClick={() => downloadSvg("illustrated")}>
                     <Download data-icon="inline-start" />
@@ -522,13 +522,7 @@ function App() {
               </Badge>
               <Badge variant="outline">1:{scale}</Badge>
               <Badge variant="outline">{elements.length} fasce</Badge>
-            </div>
-
-            <div className="overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,240,233,0.96))] p-3 shadow-inner sm:p-4">
-              <div
-                className="overflow-hidden rounded-[22px] border border-border/60 bg-white"
-                dangerouslySetInnerHTML={{ __html: svgMarkup }}
-              />
+              {isSummaryVisible ? <Badge variant="outline">summary</Badge> : null}
             </div>
 
             {isSummaryVisible ? (
@@ -538,10 +532,17 @@ function App() {
                 data={summaryData}
                 totalLabel="Totale sezione"
                 unit="m"
-                buttonText="Nascondi"
+                buttonText="Torna al disegno"
                 onButtonClick={() => setIsSummaryVisible(false)}
               />
-            ) : null}
+            ) : (
+              <div className="overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,240,233,0.96))] p-3 shadow-inner sm:p-4">
+                <div
+                  className="overflow-hidden rounded-[22px] border border-border/60 bg-white"
+                  dangerouslySetInnerHTML={{ __html: svgMarkup }}
+                />
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2">
               {usedTypes.map((type) => {
