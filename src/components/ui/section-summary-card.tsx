@@ -17,6 +17,7 @@ export interface SectionSummaryItem {
   amount: number
   color: string
   count: number
+  detail?: string
 }
 
 export interface SectionSummaryCardProps {
@@ -198,6 +199,11 @@ export function SectionSummaryCard({
                   <p className="text-2xl font-bold text-card-foreground">
                     {formatDimension(item.amount, unit)}
                   </p>
+                  {item.detail ? (
+                    <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                      {item.detail}
+                    </p>
+                  ) : null}
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     {item.count} {item.count === 1 ? "fascia" : "fasce"}
                   </p>

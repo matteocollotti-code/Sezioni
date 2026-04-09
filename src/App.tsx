@@ -56,6 +56,7 @@ import { SelectionInspector } from "./components/section-editor/SelectionInspect
 
 const defaultPreset = sectionPresets[0]
 const defaultBuildingHeight = 18
+const defaultStreetLength = 120
 
 function buildPresetElements(preset: SectionPreset) {
   return preset.elements.map((item) =>
@@ -66,6 +67,19 @@ function buildPresetElements(preset: SectionPreset) {
 function clampBuildingHeight(value: number) {
   const normalizedValue = Number.isFinite(value) ? value : defaultBuildingHeight
   return Number(Math.max(0, normalizedValue).toFixed(1))
+}
+
+function clampStreetLength(value: number) {
+  const normalizedValue = Number.isFinite(value) ? value : defaultStreetLength
+  return Number(Math.max(1, normalizedValue).toFixed(1))
+}
+
+function formatSquareMeters(value: number) {
+  const normalized = Number.isInteger(value)
+    ? value.toFixed(0)
+    : value.toFixed(1).replace(/\.0$/, "")
+
+  return `${normalized.replace(".", ",")} mq`
 }
 
 function App() {
@@ -79,6 +93,8 @@ function App() {
     buildPresetElements(defaultPreset)
   )
   const [activeElementId, setActiveElementId] = useState<string | null>(null)
+  const [summaryMode, setSummaryMode] = useState<"width" | "area">("width")
+  const [streetLength, setStreetLength] = useState(defaultStreetLength)
   const [leftBuildingHeight, setLeftBuildingHeight] = useState(defaultBuildingHeight)
   const [rightBuildingHeight, setRightBuildingHeight] = useState(defaultBuildingHeight)
 
@@ -109,32 +125,33 @@ function App() {
   )
   const isPreviewPending = deferredModel !== exportModel
   const usedTypes = Array.from(new Set(elements.map((element) => element.type)))
-  const summaryData = useMemo<SectionSummaryItem[]>(
-    () =>
-      paletteOrder
-        .map((type) => {
-          const matchingElements = elements.filter((element) => element.type === type)
+  const isSurfaceSummary = summaryMode === "area"
+  const summaryTotalAmount = isSurfaceSummary
+    ? Number((metrics.totalWidth * streetLength).toFixed(1))
+    : metrics.totalWidth
+  const summaryData: SectionSummaryItem[] = paletteOrder.flatMap((type) => {
+    const matchingElements = elements.filter((element) => element.type === type)
 
-          if (matchingElements.length === 0) {
-            return null
-          }
+    if (matchingElements.length === 0) {
+      return []
+    }
 
-          const width = matchingElements.reduce(
-            (sum, element) => sum + element.width,
-            0
-          )
+    const width = matchingElements.reduce((sum, element) => sum + element.width, 0)
+    const amount = isSurfaceSummary ? width * streetLength : width
+    const item: SectionSummaryItem = {
+      category: elementDefinitions[type].label,
+      percentage: metrics.totalWidth > 0 ? (width / metrics.totalWidth) * 100 : 0,
+      amount: Number(amount.toFixed(1)),
+      color: elementDefinitions[type].fill,
+      count: matchingElements.length,
+    }
 
-          return {
-            category: elementDefinitions[type].label,
-            percentage: metrics.totalWidth > 0 ? (width / metrics.totalWidth) * 100 : 0,
-            amount: Number(width.toFixed(1)),
-            color: elementDefinitions[type].fill,
-            count: matchingElements.length,
-          }
-        })
-        .filter((item): item is SectionSummaryItem => item !== null),
-    [elements, metrics.totalWidth]
-  )
+    if (isSurfaceSummary) {
+      item.detail = `${formatMeters(width)} x ${formatMeters(streetLength)}`
+    }
+
+    return [item]
+  })
 
   const markAsCustom = () => setSelectedPresetId("custom")
 
@@ -585,19 +602,91 @@ function App() {
               <Badge variant="outline">
                 sx {formatMeters(leftBuildingHeight)} | dx {formatMeters(rightBuildingHeight)}
               </Badge>
+              {isSummaryVisible && isSurfaceSummary ? (
+                <Badge variant="outline">lunghezza {formatMeters(streetLength)}</Badge>
+              ) : null}
               {isSummaryVisible ? <Badge variant="outline">summary</Badge> : null}
             </div>
 
             {isSummaryVisible ? (
-              <SectionSummaryCard
-                title="Summary dimensionale"
-                dateRange={`${projectTitle} | scala 1:${scale}`}
-                data={summaryData}
-                totalLabel="Totale sezione"
-                unit="m"
-                buttonText="Torna al disegno"
-                onButtonClick={() => setIsSummaryVisible(false)}
-              />
+              <div className="flex flex-col gap-4">
+                <section className="rounded-[28px] border border-border/70 bg-primary/5 p-4 sm:p-5">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                          Modalita summary
+                        </div>
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          Passa da larghezze a superfici. In modalita superfici il riepilogo calcola i mq di ogni componente sulla lunghezza che inserisci.
+                        </p>
+                      </div>
+                      <ToggleGroup
+                        type="single"
+                        variant="outline"
+                        size="sm"
+                        value={summaryMode}
+                        onValueChange={(value) =>
+                          (value === "width" || value === "area") &&
+                          setSummaryMode(value)
+                        }
+                        className="flex flex-wrap gap-2"
+                      >
+                        <ToggleGroupItem value="width">Larghezze</ToggleGroupItem>
+                        <ToggleGroupItem value="area">Superfici</ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+
+                    {isSurfaceSummary ? (
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
+                        <DimensionRangeField
+                          id="street-length"
+                          label="Lunghezza strada"
+                          value={streetLength}
+                          min={1}
+                          max={streetLength}
+                          step={1}
+                          unitLabel="m"
+                          allowUnlimited
+                          showTicks
+                          description="Il calcolo usa la larghezza complessiva di ogni categoria moltiplicata per la lunghezza della strada."
+                          onChange={(value) => setStreetLength(clampStreetLength(value))}
+                        />
+
+                        <div className="rounded-[24px] border border-border/70 bg-background/88 p-4 shadow-sm">
+                          <div className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                            Superficie totale
+                          </div>
+                          <div className="mt-2 text-2xl font-semibold text-foreground">
+                            {formatSquareMeters(summaryTotalAmount)}
+                          </div>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            {formatMeters(metrics.totalWidth)} x {formatMeters(streetLength)}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-[24px] border border-border/70 bg-background/88 px-4 py-3 text-sm leading-6 text-muted-foreground">
+                        Il riepilogo mostra le larghezze aggregate di ogni categoria presenti nella sezione.
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <SectionSummaryCard
+                  title={isSurfaceSummary ? "Summary superfici" : "Summary dimensionale"}
+                  dateRange={
+                    isSurfaceSummary
+                      ? `${projectTitle} | lunghezza ${formatMeters(streetLength)} | scala 1:${scale}`
+                      : `${projectTitle} | scala 1:${scale}`
+                  }
+                  data={summaryData}
+                  totalLabel={isSurfaceSummary ? "Superficie totale" : "Totale sezione"}
+                  unit={isSurfaceSummary ? "mq" : "m"}
+                  buttonText="Torna al disegno"
+                  onButtonClick={() => setIsSummaryVisible(false)}
+                />
+              </div>
             ) : (
               <div className="overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(250,252,255,0.96),rgba(236,242,249,0.98))] p-3 shadow-inner sm:p-4">
                 <div

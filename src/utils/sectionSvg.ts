@@ -26,15 +26,34 @@ interface BuildingContext {
 const svgSans = "'Manrope', 'Segoe UI', sans-serif"
 
 const svgPalette = {
-  paper: "#f5f8fc",
-  paperBorder: "#d3dde8",
-  divider: "#d6e0ea",
+  paper: "#f3f7fb",
+  paperBorder: "#d1dceb",
+  divider: "#d7e1ec",
   ink: "#15263f",
   inkSoft: "#667b95",
   frame: "#23374f",
   dimension: "#4f637d",
   guide: "#c7d3df",
   scale: "#20344d",
+  asphalt: "#324a63",
+  asphaltTop: "#4a6480",
+  asphaltShade: "#213448",
+  roadMark: "#f7f7f0",
+  roadMarkSoft: "#cfdae6",
+  cycleMark: "#eef9ff",
+  sidewalkJoint: "#b8ad9e",
+  curb: "#7d90a4",
+  soil: "#776a59",
+  soilShade: "#625545",
+  planting: "#5f8260",
+  plantingSoft: "#8baa82",
+  lawnBlade: "#86a468",
+  water: "#5b7a97",
+  furniture: "#455e76",
+  furnitureLight: "#dbe5ef",
+  parkingMark: "#eef4fb",
+  medianPost: "#41576f",
+  shadow: "#102132",
   building: "#203549",
   buildingAccent: "#3c536c",
   buildingWindow: "#edf4fb",
@@ -160,7 +179,15 @@ export function generateRoadSectionSvg(
       const layerMarkup = layouts
         .filter((segment) => segment.element.type === type)
         .map((segment) =>
-          renderSegment(segment, sectionY, sectionHeight, sectionBottom, safeScale, variant)
+          renderSegment(
+            segment,
+            layouts,
+            sectionY,
+            sectionHeight,
+            sectionBottom,
+            safeScale,
+            variant
+          )
         )
         .join("")
 
@@ -321,6 +348,7 @@ export function buildDownloadName(
 
 function renderSegment(
   segment: SegmentLayout,
+  allSegments: SegmentLayout[],
   y: number,
   height: number,
   sectionBottom: number,
@@ -330,6 +358,10 @@ function renderSegment(
   const definition = elementDefinitions[segment.element.type]
   const x = round(segment.x)
   const width = round(segment.width)
+  const illustratedMarkup =
+    variant === "illustrated"
+      ? renderIllustratedSurfaceDetail(segment, allSegments, y, height, sectionBottom)
+      : ""
   const treeMarkup =
     segment.element.type === "treeStrip"
       ? renderTreeDetail(segment, sectionBottom, scale, variant)
@@ -337,7 +369,349 @@ function renderSegment(
 
   return `<g id="segment-${segment.sourceIndex + 1}" data-segment-index="${segment.sourceIndex + 1}" data-type="${escapeXml(segment.element.type)}">
     <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="0.8" fill="${getExportFill(definition.fill, variant)}" stroke="${getExportStroke(definition.stroke, variant)}" stroke-width="0.7" />
+    ${illustratedMarkup}
     ${treeMarkup}
+  </g>`
+}
+
+function renderIllustratedSurfaceDetail(
+  segment: SegmentLayout,
+  allSegments: SegmentLayout[],
+  y: number,
+  height: number,
+  sectionBottom: number
+) {
+  switch (segment.element.type) {
+    case "lane":
+      return renderLaneSurface(segment, allSegments, y, height)
+    case "cycleway":
+      return renderCyclewaySurface(segment, y, height)
+    case "sidewalk":
+      return renderSidewalkSurface(segment, y, height)
+    case "treeStrip":
+      return renderTreeStripSurface(segment, sectionBottom)
+    case "plantedBed":
+      return renderPlantedBedSurface(segment, sectionBottom)
+    case "lawn":
+      return renderLawnSurface(segment, sectionBottom)
+    case "bioswale":
+      return renderBioswaleSurface(segment, y, height, sectionBottom)
+    case "streetFurniture":
+      return renderStreetFurnitureSurface(segment, sectionBottom)
+    case "parking":
+      return renderParkingSurface(segment, y, height)
+    case "median":
+      return renderMedianSurface(segment, y, sectionBottom)
+    default:
+      return ""
+  }
+}
+
+function renderLaneSurface(
+  segment: SegmentLayout,
+  allSegments: SegmentLayout[],
+  y: number,
+  height: number
+) {
+  const x = round(segment.x)
+  const width = round(segment.width)
+  const previous = allSegments[segment.sourceIndex - 1]
+  const next = allSegments[segment.sourceIndex + 1]
+  const hasPrevLane = previous?.element.type === "lane"
+  const hasNextLane = next?.element.type === "lane"
+  const topBandY = round(y + 1.2)
+  const topBandHeight = 7.4
+  const centerStripeY = round(y + 8.7)
+  const bottomShadeY = round(y + height - 8.5)
+
+  return `<g>
+    <rect x="${x + 0.8}" y="${topBandY}" width="${Math.max(
+      width - 1.6,
+      0
+    )}" height="${topBandHeight}" rx="0.6" fill="${svgPalette.asphaltTop}" opacity="0.8" />
+    <rect x="${x + 0.8}" y="${bottomShadeY}" width="${Math.max(
+      width - 1.6,
+      0
+    )}" height="6.8" rx="0.6" fill="${svgPalette.asphaltShade}" opacity="0.45" />
+    ${renderDashedSurfaceLine(
+      x + 4,
+      x + width - 4,
+      centerStripeY,
+      svgPalette.roadMark,
+      width >= 24 ? 5 : 4,
+      3
+    )}
+    ${hasPrevLane ? renderLaneBoundaryPaint(x, y + 2) : ""}
+    ${hasNextLane ? renderLaneBoundaryPaint(x + width, y + 2) : ""}
+    ${width >= 22 ? renderLaneChevron(x + width / 2, y + height / 2 + 2) : ""}
+  </g>`
+}
+
+function renderCyclewaySurface(segment: SegmentLayout, y: number, height: number) {
+  const x = round(segment.x)
+  const width = round(segment.width)
+  const iconCount = width >= 24 ? 2 : 1
+  const bikeIcons = Array.from({ length: iconCount }, (_, index) => {
+    const centerX =
+      iconCount === 1
+        ? x + width / 2
+        : x + (width * (index + 1)) / (iconCount + 1)
+    return renderBikeIcon(centerX, y + height / 2 + 3, svgPalette.cycleMark, 1.08, 0.9)
+  }).join("")
+
+  return `<g>
+    <rect x="${x + 1}" y="${round(y + 1.2)}" width="${Math.max(
+      width - 2,
+      0
+    )}" height="5.8" rx="0.6" fill="#87a6c0" opacity="0.46" />
+    <line x1="${x + 2.4}" y1="${round(y + 8.8)}" x2="${x + width - 2.4}" y2="${round(
+    y + 8.8
+  )}" stroke="${svgPalette.cycleMark}" stroke-width="1.1" stroke-linecap="round" />
+    <line x1="${x + 2.4}" y1="${round(y + height - 8.4)}" x2="${x + width - 2.4}" y2="${round(
+    y + height - 8.4
+  )}" stroke="${svgPalette.cycleMark}" stroke-width="1.1" stroke-linecap="round" opacity="0.75" />
+    ${renderDashedSurfaceLine(
+      x + 4,
+      x + width - 4,
+      y + height / 2 - 5,
+      svgPalette.cycleMark,
+      3.6,
+      2.3,
+      0.6
+    )}
+    ${bikeIcons}
+  </g>`
+}
+
+function renderSidewalkSurface(segment: SegmentLayout, y: number, height: number) {
+  const x = round(segment.x)
+  const width = round(segment.width)
+  return `<g>
+    <rect x="${x + 0.8}" y="${round(y + 1.4)}" width="${Math.max(
+      width - 1.6,
+      0
+    )}" height="5.6" rx="0.6" fill="#f7f0e6" opacity="0.72" />
+    ${renderPavingJoints(x + 2.2, y + 3, width - 4.4, height - 6)}
+  </g>`
+}
+
+function renderTreeStripSurface(segment: SegmentLayout, sectionBottom: number) {
+  const centerX = round(segment.x + segment.width / 2)
+  const soilWidth = clampNumber(segment.width * 0.72, 8, segment.width - 1.6)
+  return `<g>
+    <ellipse cx="${centerX}" cy="${round(sectionBottom - 4.6)}" rx="${round(
+      soilWidth / 2
+    )}" ry="3" fill="${svgPalette.shadow}" opacity="0.1" />
+    <ellipse cx="${centerX}" cy="${round(sectionBottom - 4.1)}" rx="${round(
+      soilWidth / 2
+    )}" ry="2.4" fill="${svgPalette.soil}" opacity="0.72" />
+    <ellipse cx="${centerX}" cy="${round(sectionBottom - 4.7)}" rx="${round(
+      soilWidth / 2.8
+    )}" ry="1.2" fill="${svgPalette.soilShade}" opacity="0.65" />
+  </g>`
+}
+
+function renderPlantedBedSurface(segment: SegmentLayout, sectionBottom: number) {
+  const x = round(segment.x)
+  const width = round(segment.width)
+  const centerX = x + width / 2
+  return `<g>
+    <ellipse cx="${centerX}" cy="${round(sectionBottom - 4.4)}" rx="${round(
+      Math.max(width * 0.3, 4)
+    )}" ry="2.4" fill="${svgPalette.soil}" opacity="0.7" />
+    ${renderImportedIcon(
+      urbanIconSymbols.plantedBed,
+      centerX,
+      sectionBottom - 12,
+      10,
+      svgPalette.planting
+    )}
+    ${width >= 14
+      ? renderImportedIcon(
+          urbanIconSymbols.plantedBed,
+          x + width * 0.28,
+          sectionBottom - 10.8,
+          8,
+          svgPalette.plantingSoft
+        )
+      : ""}
+    ${width >= 14
+      ? renderImportedIcon(
+          urbanIconSymbols.plantedBed,
+          x + width * 0.72,
+          sectionBottom - 10.8,
+          8,
+          svgPalette.plantingSoft
+        )
+      : ""}
+  </g>`
+}
+
+function renderLawnSurface(segment: SegmentLayout, sectionBottom: number) {
+  return `<g>
+    ${renderGrassTufts(segment.x + 2.5, segment.width - 5, sectionBottom - 2.4)}
+  </g>`
+}
+
+function renderBioswaleSurface(
+  segment: SegmentLayout,
+  y: number,
+  height: number,
+  sectionBottom: number
+) {
+  const x = round(segment.x)
+  const width = round(segment.width)
+  return `<g>
+    <path d="M${x + 2} ${round(y + height - 9)} C${round(x + width * 0.28)} ${round(
+      y + height - 2.8
+    )}, ${round(x + width * 0.64)} ${round(y + height - 2.8)}, ${round(
+      x + width - 2
+    )} ${round(y + height - 9)}" fill="none" stroke="${svgPalette.water}" stroke-width="1.25" stroke-linecap="round" />
+    <path d="M${x + 2.8} ${round(sectionBottom - 4)} C${round(x + width * 0.3)} ${round(
+      sectionBottom + 0.5
+    )}, ${round(x + width * 0.68)} ${round(sectionBottom + 0.5)}, ${round(
+      x + width - 2.8
+    )} ${round(sectionBottom - 4)}" fill="none" stroke="${svgPalette.soilShade}" stroke-width="0.85" opacity="0.7" />
+    ${renderReedCluster(x + width * 0.3, sectionBottom - 4.2)}
+    ${renderReedCluster(x + width * 0.72, sectionBottom - 4.2)}
+  </g>`
+}
+
+function renderStreetFurnitureSurface(segment: SegmentLayout, sectionBottom: number) {
+  const centerX = round(segment.x + segment.width / 2)
+  const lampX = round(segment.x + segment.width * 0.78)
+  return `<g>
+    ${renderImportedIcon(
+      urbanIconSymbols.streetFurniture,
+      centerX,
+      sectionBottom - 8.6,
+      9.6,
+      svgPalette.furniture
+    )}
+    <line x1="${lampX}" y1="${round(sectionBottom - 16)}" x2="${lampX}" y2="${round(
+    sectionBottom - 4.4
+  )}" stroke="${svgPalette.furniture}" stroke-width="0.85" />
+    <circle cx="${lampX}" cy="${round(sectionBottom - 17.2)}" r="1.3" fill="${svgPalette.furnitureLight}" stroke="${svgPalette.furniture}" stroke-width="0.55" />
+  </g>`
+}
+
+function renderParkingSurface(segment: SegmentLayout, y: number, height: number) {
+  const x = round(segment.x)
+  const width = round(segment.width)
+  return `<g>
+    <rect x="${x + 0.8}" y="${round(y + 1.2)}" width="${Math.max(
+      width - 1.6,
+      0
+    )}" height="6.4" rx="0.6" fill="${svgPalette.asphaltTop}" opacity="0.56" />
+    <line x1="${x + 3.2}" y1="${round(y + 6.4)}" x2="${x + 3.2}" y2="${round(
+    y + height - 5.2
+  )}" stroke="${svgPalette.parkingMark}" stroke-width="0.9" />
+    <line x1="${x + width - 3.2}" y1="${round(y + 6.4)}" x2="${x + width - 3.2}" y2="${round(
+    y + height - 5.2
+  )}" stroke="${svgPalette.parkingMark}" stroke-width="0.9" />
+    <text x="${x + width / 2}" y="${round(y + height / 2 + 4)}" text-anchor="middle" font-family="${svgSans}" font-size="7.4" font-weight="700" fill="${svgPalette.parkingMark}" opacity="0.82">P</text>
+  </g>`
+}
+
+function renderMedianSurface(
+  segment: SegmentLayout,
+  y: number,
+  sectionBottom: number
+) {
+  const centerX = round(segment.x + segment.width / 2)
+  return `<g>
+    <rect x="${round(segment.x + 0.8)}" y="${round(y + 2)}" width="${round(
+      Math.max(segment.width - 1.6, 0)
+    )}" height="4.6" rx="0.55" fill="#eef4f9" opacity="0.92" />
+    ${renderMedianPost(centerX - 3, sectionBottom - 4.2)}
+    ${renderMedianPost(centerX + 3, sectionBottom - 4.2)}
+  </g>`
+}
+
+function renderDashedSurfaceLine(
+  x1: number,
+  x2: number,
+  y: number,
+  color: string,
+  dash = 4.2,
+  gap = 2.8,
+  opacity = 0.9
+) {
+  if (x2 <= x1) {
+    return ""
+  }
+
+  return `<line x1="${round(x1)}" y1="${round(y)}" x2="${round(x2)}" y2="${round(
+    y
+  )}" stroke="${color}" stroke-width="1.15" stroke-linecap="round" stroke-dasharray="${dash} ${gap}" opacity="${opacity}" />`
+}
+
+function renderLaneBoundaryPaint(x: number, y: number) {
+  return `<rect x="${round(x - 0.45)}" y="${round(y)}" width="0.9" height="6.4" rx="0.35" fill="${svgPalette.roadMark}" opacity="0.9" />`
+}
+
+function renderLaneChevron(centerX: number, centerY: number) {
+  return `<path d="M${round(centerX - 4)} ${round(centerY + 3)} l4 -6 l4 6" fill="none" stroke="${svgPalette.roadMarkSoft}" stroke-width="0.95" stroke-linecap="round" stroke-linejoin="round" opacity="0.78" />`
+}
+
+function renderPavingJoints(
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  if (width <= 0 || height <= 0) {
+    return ""
+  }
+
+  const lines: string[] = [
+    `<line x1="${round(x)}" y1="${round(y + height * 0.52)}" x2="${round(
+      x + width
+    )}" y2="${round(y + height * 0.52)}" stroke="${svgPalette.sidewalkJoint}" stroke-width="0.55" opacity="0.8" />`,
+  ]
+  const spacing = 4.8
+
+  for (let currentX = x + spacing; currentX < x + width - spacing / 2; currentX += spacing) {
+    lines.push(
+      `<line x1="${round(currentX)}" y1="${round(y)}" x2="${round(
+        currentX
+      )}" y2="${round(y + height)}" stroke="${svgPalette.sidewalkJoint}" stroke-width="0.48" opacity="0.7" />`
+    )
+  }
+
+  return lines.join("")
+}
+
+function renderGrassTufts(x: number, width: number, baseY: number) {
+  if (width <= 0) {
+    return ""
+  }
+
+  const tufts: string[] = []
+  const count = Math.max(3, Math.floor(width / 5))
+
+  for (let index = 0; index < count; index += 1) {
+    const centerX = x + (width * index) / Math.max(count - 1, 1)
+    tufts.push(
+      `<path d="M${round(centerX - 1.6)} ${round(baseY)} l1 -4 l1 4 l1.2 -5 l1.1 5 l1 -3.6 l0.9 3.6" fill="none" stroke="${svgPalette.lawnBlade}" stroke-width="0.82" stroke-linecap="round" stroke-linejoin="round" opacity="0.88" />`
+    )
+  }
+
+  return tufts.join("")
+}
+
+function renderReedCluster(centerX: number, baseY: number) {
+  return `<g stroke="${svgPalette.planting}" stroke-width="0.8" stroke-linecap="round">
+    <path d="M${round(centerX - 1.6)} ${round(baseY)} q0.9 -4.2 0.8 -8" fill="none" />
+    <path d="M${round(centerX)} ${round(baseY)} q0.4 -5 0 -9" fill="none" />
+    <path d="M${round(centerX + 1.6)} ${round(baseY)} q-0.9 -4.1 -0.8 -7.6" fill="none" />
+  </g>`
+}
+
+function renderMedianPost(centerX: number, baseY: number) {
+  return `<g>
+    <rect x="${round(centerX - 0.9)}" y="${round(baseY - 5.6)}" width="1.8" height="5.6" rx="0.6" fill="${svgPalette.medianPost}" />
+    <rect x="${round(centerX - 1.4)}" y="${round(baseY - 6.4)}" width="2.8" height="1.3" rx="0.55" fill="${svgPalette.roadMark}" opacity="0.86" />
   </g>`
 }
 
@@ -376,6 +750,9 @@ function renderTreeDetail(
   const treeX = round(segment.x + segment.width / 2 - treeWidthMm / 2)
 
   return `<g data-tree-source="${escapeXml(illustration.name)}">
+    <ellipse cx="${round(segment.x + segment.width / 2)}" cy="${round(
+    sectionBottom - 4.1
+  )}" rx="${round(Math.max(segment.width * 0.36, 3.2))}" ry="1.9" fill="${svgPalette.shadow}" opacity="0.12" />
     ${renderTreeIllustration(illustration, treeX, topY, treeWidthMm, treeHeightMm)}
     ${dimensionMarkup}
   </g>`
@@ -519,7 +896,7 @@ function renderLegendIcon(segment: SegmentLayout, centerX: number, centerY: numb
         centerX + 7
       )}" y2="${centerY}" stroke="${svgPalette.frame}" stroke-width="1.05" stroke-dasharray="4 2.8" />`
     case "cycleway":
-      return renderBikeIcon(centerX, centerY - 2)
+      return renderBikeIcon(centerX, centerY - 2, svgPalette.frame, 1, 0.9)
     case "sidewalk":
       return `<g stroke="${svgPalette.frame}" stroke-width="0.8">
         <line x1="${round(centerX - 4)}" y1="${round(centerY - 4)}" x2="${round(
@@ -585,8 +962,14 @@ function renderLegendIcon(segment: SegmentLayout, centerX: number, centerY: numb
   }
 }
 
-function renderBikeIcon(centerX: number, centerY: number) {
-  return `<g transform="translate(${centerX} ${centerY})" stroke="${svgPalette.frame}" stroke-width="0.9" fill="none" stroke-linecap="round" stroke-linejoin="round">
+function renderBikeIcon(
+  centerX: number,
+  centerY: number,
+  stroke = svgPalette.frame,
+  scale = 1,
+  opacity = 1
+) {
+  return `<g transform="translate(${centerX} ${centerY}) scale(${scale})" stroke="${stroke}" stroke-width="0.9" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}">
     <circle cx="-4.3" cy="3.2" r="2.4" />
     <circle cx="4.3" cy="3.2" r="2.4" />
     <path d="M-4.2 3.2 L-0.4 -1.4 L2.2 3.2 M-0.4 -1.4 L3 -1.4 L4.4 3.2 M-0.2 -1.2 L-2.6 3.2" />
