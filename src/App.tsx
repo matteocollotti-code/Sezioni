@@ -25,6 +25,7 @@ import type {
 import { buildDownloadName, generateRoadSectionSvg } from "./utils/sectionSvg"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/interfaces-switch"
 import {
   Field,
   FieldDescription,
@@ -32,7 +33,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
