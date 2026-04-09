@@ -44,6 +44,10 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import {
+  SectionSummaryCard,
+  type SectionSummaryItem,
+} from "@/components/ui/section-summary-card"
 import { MetricPanel, MiniMetric } from "./components/section-editor/EditorMetrics"
 import { formatDrawingMm, formatMeters } from "./components/section-editor/editorHelpers"
 import { InteractiveSectionStrip } from "./components/section-editor/InteractiveSectionStrip"
@@ -63,6 +67,7 @@ function App() {
   const [selectedPresetId, setSelectedPresetId] = useState(defaultPreset.id)
   const [previewVariant, setPreviewVariant] =
     useState<ExportVariant>("illustrated")
+  const [isSummaryVisible, setIsSummaryVisible] = useState(false)
   const [elements, setElements] = useState<SectionElement[]>(() =>
     buildPresetElements(defaultPreset)
   )
@@ -89,6 +94,32 @@ function App() {
   )
   const isPreviewPending = deferredModel !== exportModel
   const usedTypes = Array.from(new Set(elements.map((element) => element.type)))
+  const summaryData = useMemo<SectionSummaryItem[]>(
+    () =>
+      paletteOrder
+        .map((type) => {
+          const matchingElements = elements.filter((element) => element.type === type)
+
+          if (matchingElements.length === 0) {
+            return null
+          }
+
+          const width = matchingElements.reduce(
+            (sum, element) => sum + element.width,
+            0
+          )
+
+          return {
+            category: elementDefinitions[type].label,
+            percentage: metrics.totalWidth > 0 ? (width / metrics.totalWidth) * 100 : 0,
+            amount: Number(width.toFixed(1)),
+            color: elementDefinitions[type].fill,
+            count: matchingElements.length,
+          }
+        })
+        .filter((item): item is SectionSummaryItem => item !== null),
+    [elements, metrics.totalWidth]
+  )
 
   const markAsCustom = () => setSelectedPresetId("custom")
 
@@ -434,7 +465,13 @@ function App() {
                   <ToggleGroupItem value="illustrated">Illustrata</ToggleGroupItem>
                   <ToggleGroupItem value="clean">Clean</ToggleGroupItem>
                 </ToggleGroup>
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={isSummaryVisible ? "secondary" : "outline"}
+                    onClick={() => setIsSummaryVisible((current) => !current)}
+                  >
+                    Summary
+                  </Button>
                   <Button onClick={() => downloadSvg("illustrated")}>
                     <Download data-icon="inline-start" />
                     SVG illustrato
@@ -471,6 +508,18 @@ function App() {
                 ? "mantiene campiture, quote e misure per una postproduzione rapida."
                 : "usa alberi derivati da misto.ai, icone da Balshi_Icon Database_2D.ai e un impianto grafico tecnico ispirato a 260407_Benghazi Street Sections.ai."}
             </p>
+
+            {isSummaryVisible ? (
+              <SectionSummaryCard
+                title="Summary dimensionale"
+                dateRange={`${projectTitle} | scala 1:${scale}`}
+                data={summaryData}
+                totalLabel="Totale sezione"
+                unit="m"
+                buttonText="Nascondi"
+                onButtonClick={() => setIsSummaryVisible(false)}
+              />
+            ) : null}
 
             <div className="flex flex-wrap gap-2">
               {usedTypes.map((type) => {
