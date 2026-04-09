@@ -54,3 +54,5 @@ export interface ExportModel {
   scale: number
   elements: SectionElement[]
 }
+
+export type ExportVariant = 'illustrated' | 'clean'

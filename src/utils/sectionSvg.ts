@@ -1,5 +1,5 @@
 import { calculateMetrics, elementDefinitions } from '../data/sectionLibrary'
-import type { ExportModel, SectionElement } from '../types'
+import type { ExportModel, ExportVariant, SectionElement } from '../types'
 
 interface SegmentLayout {
   element: SectionElement
@@ -10,11 +10,10 @@ interface SegmentLayout {
 const svgSerif = "'Fraunces', Georgia, serif"
 const svgSans = "'Manrope', 'Segoe UI', sans-serif"
 
-export function generateRoadSectionSvg({
-  projectTitle,
-  scale,
-  elements,
-}: ExportModel) {
+export function generateRoadSectionSvg(
+  { projectTitle, scale, elements }: ExportModel,
+  variant: ExportVariant = 'illustrated',
+) {
   const safeScale = Math.max(25, scale)
   const metrics = calculateMetrics(elements)
   const totalWidthMm = toScaleMillimeters(metrics.totalWidth, safeScale)
@@ -27,6 +26,10 @@ export function generateRoadSectionSvg({
   const topDimensionY = sectionY - 11
   const totalDimensionY = sectionBottom + 18
   const scaleBarY = totalDimensionY + 12
+  const isClean = variant === 'clean'
+  const subtitle = isClean
+    ? `SVG clean in scala 1:${safeScale}`
+    : `SVG vettoriale illustrato in scala 1:${safeScale}`
 
   let currentX = drawingX
   const layouts = elements.map<SegmentLayout>((element) => {
@@ -55,11 +58,12 @@ export function generateRoadSectionSvg({
     .join('')
 
   const segmentsMarkup = layouts
-    .map((segment) => renderSegment(segment, sectionY, sectionHeight))
+    .map((segment) => renderSegment(segment, sectionY, sectionHeight, variant))
     .join('')
 
-  const legendSummary = `${metrics.totalWidth.toFixed(1)} m complessivi · ${metrics.greenWidth.toFixed(1)} m di verde`
-    .replaceAll('.', ',')
+  const legendSummary =
+    `${metrics.totalWidth.toFixed(1)} m complessivi - ${metrics.greenWidth.toFixed(1)} m di verde`
+      .replaceAll('.', ',')
 
   const scaleBarMeters =
     metrics.totalWidth >= 18 ? 5 : metrics.totalWidth >= 10 ? 2 : 1
@@ -81,9 +85,9 @@ export function generateRoadSectionSvg({
   <rect x="6" y="6" width="${canvasWidth - 12}" height="${canvasHeight - 12}" rx="12" fill="none" stroke="#dcd6c9" stroke-width="0.6" />
   <path d="M12 34 H${canvasWidth - 12}" stroke="#e5dfd5" stroke-width="0.6" />
   <text x="${drawingX}" y="18" font-family="${svgSerif}" font-size="10" font-weight="700" fill="#1f302e">${escapeXml(projectTitle)}</text>
-  <text x="${drawingX}" y="27" font-family="${svgSans}" font-size="4.1" letter-spacing="0.28" fill="#63706d">SVG vettoriale in scala 1:${safeScale}</text>
+  <text x="${drawingX}" y="27" font-family="${svgSans}" font-size="4.1" letter-spacing="0.28" fill="#63706d">${escapeXml(subtitle)}</text>
   <text x="${canvasWidth - drawingX}" y="18" text-anchor="end" font-family="${svgSans}" font-size="4.6" font-weight="700" fill="#20312f">${escapeXml(formatMeters(metrics.totalWidth))}</text>
-  <text x="${canvasWidth - drawingX}" y="27" text-anchor="end" font-family="${svgSans}" font-size="4.1" fill="#63706d">${metrics.greenWidth.toFixed(1).replace('.', ',')} m di verde · ${elements.length} fasce</text>
+  <text x="${canvasWidth - drawingX}" y="27" text-anchor="end" font-family="${svgSans}" font-size="4.1" fill="#63706d">${metrics.greenWidth.toFixed(1).replace('.', ',')} m di verde - ${elements.length} fasce</text>
   ${segmentDimensions}
   <g>
     ${segmentsMarkup}
@@ -98,24 +102,34 @@ export function generateRoadSectionSvg({
 </svg>`
 }
 
-export function buildDownloadName(projectTitle: string) {
-  return (
+export function buildDownloadName(
+  projectTitle: string,
+  variant: ExportVariant = 'illustrated',
+) {
+  const baseName =
     projectTitle
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'sezione-stradale'
-  )
+
+  return variant === 'clean' ? `${baseName}-clean` : `${baseName}-illustrata`
 }
 
-function renderSegment(segment: SegmentLayout, y: number, height: number) {
+function renderSegment(
+  segment: SegmentLayout,
+  y: number,
+  height: number,
+  variant: ExportVariant,
+) {
   const definition = elementDefinitions[segment.element.type]
   const x = round(segment.x)
   const width = round(segment.width)
   const centerX = round(x + width / 2)
   const centerY = round(y + height / 2)
-  const labelMarkup = renderLabel(segment, centerX, centerY)
-  const symbolMarkup = renderSymbol(segment, y, height)
+  const isClean = variant === 'clean'
+  const labelMarkup = isClean ? '' : renderLabel(segment, centerX, centerY)
+  const symbolMarkup = isClean ? '' : renderSymbol(segment, y, height)
 
   return `<g>
     <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="3.8" fill="${definition.fill}" stroke="${definition.stroke}" stroke-width="0.7" />
@@ -133,7 +147,7 @@ function renderLabel(segment: SegmentLayout, centerX: number, centerY: number) {
   if (isNarrow) {
     return `<g transform="translate(${centerX} ${centerY}) rotate(-90)">
       <text text-anchor="middle" font-family="${svgSans}" font-size="3.7" font-weight="700" fill="${definition.textColor}">
-        ${escapeXml(definition.shortLabel.toUpperCase())} · ${widthLabel}
+        ${escapeXml(definition.shortLabel.toUpperCase())} - ${widthLabel}
       </text>
     </g>`
   }

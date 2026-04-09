@@ -9,7 +9,12 @@ import {
   scalePresets,
   sectionPresets,
 } from './data/sectionLibrary'
-import type { ElementType, SectionElement, SectionPreset } from './types'
+import type {
+  ElementType,
+  ExportVariant,
+  SectionElement,
+  SectionPreset,
+} from './types'
 import { buildDownloadName, generateRoadSectionSvg } from './utils/sectionSvg'
 
 const defaultPreset = sectionPresets[0]
@@ -18,6 +23,7 @@ function App() {
   const [projectTitle, setProjectTitle] = useState('Sezione urbana alberata')
   const [scale, setScale] = useState(100)
   const [selectedPresetId, setSelectedPresetId] = useState(defaultPreset.id)
+  const [previewVariant, setPreviewVariant] = useState<ExportVariant>('illustrated')
   const [elements, setElements] = useState(() =>
     defaultPreset.elements.map((item) =>
       createSectionElement(item.type, item.width),
@@ -35,8 +41,8 @@ function App() {
   )
   const deferredModel = useDeferredValue(exportModel)
   const svgMarkup = useMemo(
-    () => generateRoadSectionSvg(deferredModel),
-    [deferredModel],
+    () => generateRoadSectionSvg(deferredModel, previewVariant),
+    [deferredModel, previewVariant],
   )
   const isPreviewPending = deferredModel !== exportModel
   const usedTypes = Array.from(new Set(elements.map((element) => element.type)))
@@ -139,14 +145,15 @@ function App() {
     applyPreset(fallbackPreset)
   }
 
-  const downloadSvg = () => {
-    const svgBlob = new Blob([svgMarkup], {
+  const downloadSvg = (variant: ExportVariant) => {
+    const markup = generateRoadSectionSvg(exportModel, variant)
+    const svgBlob = new Blob([markup], {
       type: 'image/svg+xml;charset=utf-8',
     })
     const objectUrl = URL.createObjectURL(svgBlob)
     const anchor = document.createElement('a')
     anchor.href = objectUrl
-    anchor.download = `${buildDownloadName(projectTitle)}.svg`
+    anchor.download = `${buildDownloadName(projectTitle, variant)}.svg`
     document.body.append(anchor)
     anchor.click()
     anchor.remove()
@@ -161,8 +168,9 @@ function App() {
           <h1>Compone sezioni stradali pulite, scalate e subito scaricabili in SVG.</h1>
           <p>
             Aggiungi carreggiate, ciclabili, alberature, verde e arredo urbano.
-            Regola ogni fascia con slider o input numerico e scarica un file
-            vettoriale in scala pronto per studio, presentazione o impaginazione.
+            Regola ogni fascia con slider o input numerico e scarica sia una
+            versione illustrata sia una versione clean pronta per la
+            postproduzione.
           </p>
 
           <div className="hero__highlights">
@@ -369,7 +377,7 @@ function App() {
                           type="button"
                           onClick={() => removeElement(element.id)}
                         >
-                          ×
+                          x
                         </button>
                       </div>
                     </div>
@@ -459,7 +467,26 @@ function App() {
                 <div className="panel__eyebrow">Anteprima</div>
                 <h2>SVG quotato e aggiornato in tempo reale</h2>
               </div>
-              <span className="status-chip">{isPreviewPending ? 'aggiorno...' : 'sincronizzata'}</span>
+              <span className="status-chip">
+                {isPreviewPending ? 'aggiorno...' : 'sincronizzata'}
+              </span>
+            </div>
+
+            <div className="variant-switch" role="tablist" aria-label="Varianti export">
+              <button
+                className={`variant-switch__button${previewVariant === 'illustrated' ? ' is-active' : ''}`}
+                type="button"
+                onClick={() => setPreviewVariant('illustrated')}
+              >
+                Illustrata
+              </button>
+              <button
+                className={`variant-switch__button${previewVariant === 'clean' ? ' is-active' : ''}`}
+                type="button"
+                onClick={() => setPreviewVariant('clean')}
+              >
+                Clean
+              </button>
             </div>
 
             <div className="preview-frame">
@@ -468,6 +495,13 @@ function App() {
                 dangerouslySetInnerHTML={{ __html: svgMarkup }}
               />
             </div>
+
+            <p className="preview-note">
+              La variante <strong>{previewVariant === 'clean' ? 'clean' : 'illustrata'}</strong>{' '}
+              {previewVariant === 'clean'
+                ? 'mantiene solo campiture, quote e misure per facilitare la postproduzione.'
+                : 'mantiene una simbologia vettoriale piu ricca per presentazioni e concept.'}
+            </p>
 
             <div className="legend-row" role="list" aria-label="Legenda elementi usati">
               {usedTypes.map((type) => {
@@ -492,15 +526,26 @@ function App() {
                 <div className="panel__eyebrow">Export</div>
                 <h2>Scarica il vettoriale in scala</h2>
                 <p className="export-copy">
-                  Il file viene esportato in millimetri alla scala selezionata,
-                  con larghezze quotate e una simbologia leggera per distinguere
-                  carreggiate, ciclabili, alberature, verde e arredo urbano.
+                  Esporta una tavola illustrata per comunicazione e una tavola
+                  clean, con sole campiture cromatiche, quote e misure, da
+                  postprodurre o rifinire nei tuoi software grafici.
                 </p>
               </div>
 
               <div className="export-actions">
-                <button className="primary-button" type="button" onClick={downloadSvg}>
-                  Scarica SVG
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => downloadSvg('illustrated')}
+                >
+                  Scarica SVG illustrato
+                </button>
+                <button
+                  className="ghost-button ghost-button--strong"
+                  type="button"
+                  onClick={() => downloadSvg('clean')}
+                >
+                  Scarica SVG clean
                 </button>
                 <div className="export-meta">
                   <span>{formatDrawingMm(metrics.totalWidth, scale)}</span>
