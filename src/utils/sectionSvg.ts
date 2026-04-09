@@ -63,7 +63,9 @@ export function generateRoadSectionSvg(
   )
   const drawingX = round((canvasWidth - totalWidthMm) / 2)
   const sectionHeight = 44
-  const headerDividerY = 34
+  const headerTitleY = 14.6
+  const headerSubtitleY = 22.4
+  const headerDividerY = 30
 
   let currentX = drawingX
   const layouts = elements.map<SegmentLayout>((element, sourceIndex) => {
@@ -88,17 +90,17 @@ export function generateRoadSectionSvg(
   }, 0)
 
   const sectionBottom = round(
-    Math.max(108, headerDividerY + maxTreeHeightMm + 22)
+    Math.max(96, headerDividerY + maxTreeHeightMm + 16)
   )
   const sectionY = round(sectionBottom - sectionHeight)
-  const segmentDimensionY = round(sectionBottom + 16)
-  const totalDimensionY = round(segmentDimensionY + 18)
-  const scaleBarY = round(totalDimensionY + 14)
+  const segmentDimensionY = round(sectionBottom + 12)
+  const totalDimensionY = round(segmentDimensionY + 14)
+  const scaleBarY = round(totalDimensionY + 11)
   const isClean = variant === "clean"
-  const annotationGuideY = round(scaleBarY + 10)
-  const annotationIconY = round(annotationGuideY + 9)
-  const annotationLabelY = round(annotationIconY + 9)
-  const canvasHeight = round(isClean ? scaleBarY + 18 : annotationLabelY + 18)
+  const annotationGuideY = round(scaleBarY + 7)
+  const annotationIconY = round(annotationGuideY + 8)
+  const annotationLabelY = round(annotationIconY + 7)
+  const canvasHeight = round(isClean ? scaleBarY + 11 : annotationLabelY + 12)
   const subtitle = isClean
     ? `SVG clean in scala 1:${safeScale}`
     : `SVG illustrato in scala 1:${safeScale}`
@@ -198,10 +200,10 @@ export function generateRoadSectionSvg(
   ${renderLayer(
     "header",
     "Testata",
-    `<text x="${drawingX}" y="16" font-family="${svgSans}" font-size="4.2" font-weight="800" letter-spacing="0.18" fill="${svgPalette.ink}">${escapeXml(projectTitle.toUpperCase())}</text>
-  <text x="${drawingX}" y="25.2" font-family="${svgSans}" font-size="3.6" letter-spacing="0.2" fill="${svgPalette.inkSoft}">${escapeXml(subtitle)}</text>
-  <text x="${canvasWidth - drawingX}" y="16" text-anchor="end" font-family="${svgSans}" font-size="4.2" font-weight="700" letter-spacing="0.12" fill="${svgPalette.ink}">${escapeXml(formatMeters(metrics.totalWidth))}</text>
-  <text x="${canvasWidth - drawingX}" y="25.2" text-anchor="end" font-family="${svgSans}" font-size="3.5" fill="${svgPalette.inkSoft}">${escapeXml(legendSummary)}</text>`
+    `<text x="${drawingX}" y="${headerTitleY}" font-family="${svgSans}" font-size="4.2" font-weight="800" letter-spacing="0.18" fill="${svgPalette.ink}">${escapeXml(projectTitle.toUpperCase())}</text>
+  <text x="${drawingX}" y="${headerSubtitleY}" font-family="${svgSans}" font-size="3.6" letter-spacing="0.2" fill="${svgPalette.inkSoft}">${escapeXml(subtitle)}</text>
+  <text x="${canvasWidth - drawingX}" y="${headerTitleY}" text-anchor="end" font-family="${svgSans}" font-size="4.2" font-weight="700" letter-spacing="0.12" fill="${svgPalette.ink}">${escapeXml(formatMeters(metrics.totalWidth))}</text>
+  <text x="${canvasWidth - drawingX}" y="${headerSubtitleY}" text-anchor="end" font-family="${svgSans}" font-size="3.5" fill="${svgPalette.inkSoft}">${escapeXml(legendSummary)}</text>`
   )}
   ${renderLayer(
     "section-frame",
@@ -228,7 +230,7 @@ export function generateRoadSectionSvg(
     <line x1="${scaleBarX}" y1="${scaleBarY}" x2="${scaleBarX + scaleBarWidth}" y2="${scaleBarY}" stroke="${svgPalette.scale}" stroke-width="1.2" />
     <line x1="${scaleBarX}" y1="${scaleBarY - 2.2}" x2="${scaleBarX}" y2="${scaleBarY + 2.2}" stroke="${svgPalette.scale}" stroke-width="1.2" />
     <line x1="${scaleBarX + scaleBarWidth}" y1="${scaleBarY - 2.2}" x2="${scaleBarX + scaleBarWidth}" y2="${scaleBarY + 2.2}" stroke="${svgPalette.scale}" stroke-width="1.2" />
-    <text x="${scaleBarX + scaleBarWidth / 2}" y="${scaleBarY + 6}" text-anchor="middle" font-family="${svgSans}" font-size="3.8" fill="${svgPalette.inkSoft}">${scaleBarMeters} m reali</text>
+    <text x="${scaleBarX + scaleBarWidth / 2}" y="${scaleBarY + 5.4}" text-anchor="middle" font-family="${svgSans}" font-size="3.8" fill="${svgPalette.inkSoft}">${scaleBarMeters} m reali</text>
   </g>`
   )}
   ${annotationMarkup}

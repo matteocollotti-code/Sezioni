@@ -599,7 +599,7 @@ function App() {
                 />
               </div>
             ) : (
-              <div className="select-none overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(250,252,255,0.96),rgba(236,242,249,0.98))] p-3 shadow-inner sm:p-4">
+              <div className="select-none overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(250,252,255,0.96),rgba(236,242,249,0.98))] p-2 shadow-inner sm:p-2.5">
                 <div
                   className="overflow-hidden rounded-[22px] border border-border/60 bg-white select-none"
                   dangerouslySetInnerHTML={{ __html: svgMarkup }}
