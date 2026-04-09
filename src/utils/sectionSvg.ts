@@ -1,4 +1,8 @@
-import { calculateMetrics, elementDefinitions } from '../data/sectionLibrary'
+import {
+  calculateMetrics,
+  elementDefinitions,
+  paletteOrder,
+} from '../data/sectionLibrary'
 import type { ExportModel, ExportVariant, SectionElement } from '../types'
 
 interface SegmentLayout {
@@ -57,8 +61,23 @@ export function generateRoadSectionSvg(
     )
     .join('')
 
-  const segmentsMarkup = layouts
-    .map((segment) => renderSegment(segment, sectionY, sectionHeight, variant))
+  const usedTypes = paletteOrder.filter((type) =>
+    layouts.some((segment) => segment.element.type === type),
+  )
+  const elementLayersMarkup = usedTypes
+    .map((type) => {
+      const definition = elementDefinitions[type]
+      const layerMarkup = layouts
+        .filter((segment) => segment.element.type === type)
+        .map((segment) => renderSegment(segment, sectionY, sectionHeight, variant))
+        .join('')
+
+      return renderLayer(
+        `element-${slugify(type)}`,
+        `Elemento - ${definition.label}`,
+        layerMarkup,
+      )
+    })
     .join('')
 
   const legendSummary =
@@ -70,7 +89,7 @@ export function generateRoadSectionSvg(
   const scaleBarWidth = toScaleMillimeters(scaleBarMeters, safeScale)
   const scaleBarX = round(canvasWidth - drawingX - scaleBarWidth)
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}mm" height="${canvasHeight}mm" viewBox="0 0 ${canvasWidth} ${canvasHeight}" role="img" aria-labelledby="section-title section-desc">
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${canvasWidth}mm" height="${canvasHeight}mm" viewBox="0 0 ${canvasWidth} ${canvasHeight}" role="img" aria-labelledby="section-title section-desc">
   <title id="section-title">${escapeXml(projectTitle)}</title>
   <desc id="section-desc">Sezione stradale quotata, esportata in scala 1:${safeScale}. ${escapeXml(legendSummary)}.</desc>
   <defs>
@@ -81,24 +100,44 @@ export function generateRoadSectionSvg(
       <path d="M0 0 L10 5 L0 10" fill="none" stroke="#5f696f" stroke-width="1.1" />
     </marker>
   </defs>
-  <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="16" fill="#fcfaf6" />
+  ${renderLayer(
+    'background',
+    'Sfondo',
+    `<rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="16" fill="#fcfaf6" />
   <rect x="6" y="6" width="${canvasWidth - 12}" height="${canvasHeight - 12}" rx="12" fill="none" stroke="#dcd6c9" stroke-width="0.6" />
-  <path d="M12 34 H${canvasWidth - 12}" stroke="#e5dfd5" stroke-width="0.6" />
-  <text x="${drawingX}" y="18" font-family="${svgSerif}" font-size="10" font-weight="700" fill="#1f302e">${escapeXml(projectTitle)}</text>
+  <path d="M12 34 H${canvasWidth - 12}" stroke="#e5dfd5" stroke-width="0.6" />`,
+  )}
+  ${renderLayer(
+    'header',
+    'Testata',
+    `<text x="${drawingX}" y="18" font-family="${svgSerif}" font-size="10" font-weight="700" fill="#1f302e">${escapeXml(projectTitle)}</text>
   <text x="${drawingX}" y="27" font-family="${svgSans}" font-size="4.1" letter-spacing="0.28" fill="#63706d">${escapeXml(subtitle)}</text>
   <text x="${canvasWidth - drawingX}" y="18" text-anchor="end" font-family="${svgSans}" font-size="4.6" font-weight="700" fill="#20312f">${escapeXml(formatMeters(metrics.totalWidth))}</text>
-  <text x="${canvasWidth - drawingX}" y="27" text-anchor="end" font-family="${svgSans}" font-size="4.1" fill="#63706d">${metrics.greenWidth.toFixed(1).replace('.', ',')} m di verde - ${elements.length} fasce</text>
-  ${segmentDimensions}
-  <g>
-    ${segmentsMarkup}
-  </g>
-  ${renderDimensionLine(drawingX, drawingX + totalWidthMm, sectionBottom, totalDimensionY, formatMeters(metrics.totalWidth))}
-  <g>
+  <text x="${canvasWidth - drawingX}" y="27" text-anchor="end" font-family="${svgSans}" font-size="4.1" fill="#63706d">${metrics.greenWidth.toFixed(1).replace('.', ',')} m di verde - ${elements.length} fasce</text>`,
+  )}
+  ${renderLayer('dimensions-elements', 'Quote elementi', segmentDimensions)}
+  ${elementLayersMarkup}
+  ${renderLayer(
+    'dimensions-total',
+    'Quote totali',
+    renderDimensionLine(
+      drawingX,
+      drawingX + totalWidthMm,
+      sectionBottom,
+      totalDimensionY,
+      formatMeters(metrics.totalWidth),
+    ),
+  )}
+  ${renderLayer(
+    'scale-bar',
+    'Barra di scala',
+    `<g>
     <line x1="${scaleBarX}" y1="${scaleBarY}" x2="${scaleBarX + scaleBarWidth}" y2="${scaleBarY}" stroke="#20312f" stroke-width="1.2" />
     <line x1="${scaleBarX}" y1="${scaleBarY - 2.2}" x2="${scaleBarX}" y2="${scaleBarY + 2.2}" stroke="#20312f" stroke-width="1.2" />
     <line x1="${scaleBarX + scaleBarWidth}" y1="${scaleBarY - 2.2}" x2="${scaleBarX + scaleBarWidth}" y2="${scaleBarY + 2.2}" stroke="#20312f" stroke-width="1.2" />
     <text x="${scaleBarX + scaleBarWidth / 2}" y="${scaleBarY + 6}" text-anchor="middle" font-family="${svgSans}" font-size="3.8" fill="#63706d">${scaleBarMeters} m reali</text>
-  </g>
+  </g>`,
+  )}
 </svg>`
 }
 
@@ -280,6 +319,12 @@ function renderDimensionLine(
   </g>`
 }
 
+function renderLayer(id: string, label: string, content: string) {
+  return `<g id="layer-${id}" data-layer="${escapeXml(label)}" inkscape:groupmode="layer" inkscape:label="${escapeXml(label)}">
+    ${content}
+  </g>`
+}
+
 function toScaleMillimeters(widthInMeters: number, scale: number) {
   return round((widthInMeters * 1000) / scale)
 }
@@ -303,4 +348,11 @@ function escapeXml(value: string) {
 
 function round(value: number) {
   return Number(value.toFixed(2))
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
