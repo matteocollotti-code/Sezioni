@@ -49,16 +49,23 @@ import {
   type SectionSummaryItem,
 } from "@/components/ui/section-summary-card"
 import { MetricPanel, MiniMetric } from "./components/section-editor/EditorMetrics"
+import { DimensionRangeField } from "./components/section-editor/DimensionRangeField"
 import { formatDrawingMm, formatMeters } from "./components/section-editor/editorHelpers"
 import { InteractiveSectionStrip } from "./components/section-editor/InteractiveSectionStrip"
 import { SelectionInspector } from "./components/section-editor/SelectionInspector"
 
 const defaultPreset = sectionPresets[0]
+const defaultBuildingHeight = 18
 
 function buildPresetElements(preset: SectionPreset) {
   return preset.elements.map((item) =>
     createSectionElement(item.type, item.width, item.treeHeight)
   )
+}
+
+function clampBuildingHeight(value: number) {
+  const normalizedValue = Number.isFinite(value) ? value : defaultBuildingHeight
+  return Number(Math.max(0, normalizedValue).toFixed(1))
 }
 
 function App() {
@@ -72,6 +79,8 @@ function App() {
     buildPresetElements(defaultPreset)
   )
   const [activeElementId, setActiveElementId] = useState<string | null>(null)
+  const [leftBuildingHeight, setLeftBuildingHeight] = useState(defaultBuildingHeight)
+  const [rightBuildingHeight, setRightBuildingHeight] = useState(defaultBuildingHeight)
 
   const resolvedActiveElementId =
     activeElementId && elements.some((element) => element.id === activeElementId)
@@ -84,8 +93,14 @@ function App() {
   const activeElement = activeIndex >= 0 ? elements[activeIndex] : null
   const metrics = calculateMetrics(elements)
   const exportModel = useMemo(
-    () => ({ projectTitle, scale, elements }),
-    [elements, projectTitle, scale]
+    () => ({
+      projectTitle,
+      scale,
+      elements,
+      leftBuildingHeight,
+      rightBuildingHeight,
+    }),
+    [elements, leftBuildingHeight, projectTitle, rightBuildingHeight, scale]
   )
   const deferredModel = useDeferredValue(exportModel)
   const svgMarkup = useMemo(
@@ -348,6 +363,51 @@ function App() {
             </div>
           </FieldGroup>
 
+          <section className="rounded-[28px] border border-border/70 bg-primary/5 p-4 sm:p-5">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                    Contesto laterale
+                  </div>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Imposta l&apos;altezza degli edifici ai due lati della tavola. Se porti un lato a 0 m, quel fronte scompare.
+                  </p>
+                </div>
+                <Badge variant="outline" className="self-start sm:self-auto">
+                  profilo urbano
+                </Badge>
+              </div>
+
+              <FieldGroup className="grid gap-4 lg:grid-cols-2">
+                <DimensionRangeField
+                  id="left-building-height"
+                  label="Edificio sinistro"
+                  value={leftBuildingHeight}
+                  min={0}
+                  max={leftBuildingHeight}
+                  step={0.5}
+                  unitLabel="m"
+                  allowUnlimited
+                  showTicks
+                  onChange={(value) => setLeftBuildingHeight(clampBuildingHeight(value))}
+                />
+                <DimensionRangeField
+                  id="right-building-height"
+                  label="Edificio destro"
+                  value={rightBuildingHeight}
+                  min={0}
+                  max={rightBuildingHeight}
+                  step={0.5}
+                  unitLabel="m"
+                  allowUnlimited
+                  showTicks
+                  onChange={(value) => setRightBuildingHeight(clampBuildingHeight(value))}
+                />
+              </FieldGroup>
+            </div>
+          </section>
+
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -405,7 +465,7 @@ function App() {
       </header>
 
       <main className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_360px]">
-        <section className="overflow-hidden rounded-[32px] border border-border/70 bg-background/88 shadow-[0_18px_60px_rgba(23,34,33,0.06)]">
+        <section className="overflow-hidden rounded-[32px] border border-border/70 bg-background/88 shadow-[0_18px_60px_rgba(22,38,62,0.08)]">
           <div className="flex flex-col gap-5 p-5 sm:p-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div className="space-y-1">
@@ -473,13 +533,13 @@ function App() {
           onRemove={removeElement}
         />
 
-        <section className="overflow-hidden rounded-[32px] border border-border/70 bg-background/88 shadow-[0_18px_60px_rgba(23,34,33,0.06)] xl:col-start-1">
+        <section className="overflow-hidden rounded-[32px] border border-border/70 bg-background/88 shadow-[0_18px_60px_rgba(22,38,62,0.08)] xl:col-start-1">
           <div className="flex flex-col gap-5 p-5 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-1">
                 <h2 className="text-xl font-semibold text-foreground">Anteprima SVG</h2>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  La tavola vettoriale resta sincronizzata con la sezione cliccabile.
+                  La tavola vettoriale resta sincronizzata con la sezione cliccabile e con il contesto urbano laterale.
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:items-end">
@@ -522,6 +582,9 @@ function App() {
               </Badge>
               <Badge variant="outline">1:{scale}</Badge>
               <Badge variant="outline">{elements.length} fasce</Badge>
+              <Badge variant="outline">
+                sx {formatMeters(leftBuildingHeight)} | dx {formatMeters(rightBuildingHeight)}
+              </Badge>
               {isSummaryVisible ? <Badge variant="outline">summary</Badge> : null}
             </div>
 
@@ -536,7 +599,7 @@ function App() {
                 onButtonClick={() => setIsSummaryVisible(false)}
               />
             ) : (
-              <div className="overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,240,233,0.96))] p-3 shadow-inner sm:p-4">
+              <div className="overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(250,252,255,0.96),rgba(236,242,249,0.98))] p-3 shadow-inner sm:p-4">
                 <div
                   className="overflow-hidden rounded-[22px] border border-border/60 bg-white"
                   dangerouslySetInnerHTML={{ __html: svgMarkup }}
