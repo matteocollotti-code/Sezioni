@@ -55,8 +55,13 @@ export function generateRoadSectionSvg(
   const segmentDimensionY = round(sectionBottom + 16)
   const totalDimensionY = round(segmentDimensionY + 18)
   const scaleBarY = round(totalDimensionY + 14)
-  const canvasHeight = round(scaleBarY + 18)
   const isClean = variant === 'clean'
+  const annotationGuideY = round(scaleBarY + 10)
+  const annotationIconY = round(annotationGuideY + 9)
+  const annotationLabelY = round(annotationIconY + 9)
+  const canvasHeight = round(
+    isClean ? scaleBarY + 18 : annotationLabelY + 18,
+  )
   const subtitle = isClean
     ? `SVG clean in scala 1:${safeScale}`
     : `SVG vettoriale illustrato in scala 1:${safeScale}`
@@ -118,6 +123,13 @@ export function generateRoadSectionSvg(
     metrics.totalWidth >= 18 ? 5 : metrics.totalWidth >= 10 ? 2 : 1
   const scaleBarWidth = toScaleMillimeters(scaleBarMeters, safeScale)
   const scaleBarX = round(canvasWidth - drawingX - scaleBarWidth)
+  const annotationMarkup = isClean
+    ? ''
+    : renderLayer(
+        'annotations',
+        'Annotazioni',
+        renderSegmentAnnotations(layouts, annotationGuideY, annotationIconY, annotationLabelY),
+      )
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${canvasWidth}mm" height="${canvasHeight}mm" viewBox="0 0 ${canvasWidth} ${canvasHeight}" role="img" aria-labelledby="section-title section-desc">
   <title id="section-title">${escapeXml(projectTitle)}</title>
@@ -168,6 +180,7 @@ export function generateRoadSectionSvg(
     <text x="${scaleBarX + scaleBarWidth / 2}" y="${scaleBarY + 6}" text-anchor="middle" font-family="${svgSans}" font-size="3.8" fill="#63706d">${scaleBarMeters} m reali</text>
   </g>`,
   )}
+  ${annotationMarkup}
 </svg>`
 }
 
@@ -196,11 +209,6 @@ function renderSegment(
   const definition = elementDefinitions[segment.element.type]
   const x = round(segment.x)
   const width = round(segment.width)
-  const centerX = round(x + width / 2)
-  const centerY = round(y + height / 2)
-  const isClean = variant === 'clean'
-  const labelMarkup = isClean ? '' : renderLabel(segment, centerX, centerY)
-  const symbolMarkup = isClean ? '' : renderSymbol(segment, y, height)
   const treeMarkup =
     segment.element.type === 'treeStrip'
       ? renderTreeDetail(segment, sectionBottom, scale, variant)
@@ -209,29 +217,7 @@ function renderSegment(
   return `<g id="segment-${segment.sourceIndex + 1}" data-segment-index="${segment.sourceIndex + 1}" data-type="${escapeXml(segment.element.type)}">
     <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="3.8" fill="${definition.fill}" stroke="${definition.stroke}" stroke-width="0.7" />
     ${treeMarkup}
-    ${symbolMarkup}
-    ${labelMarkup}
   </g>`
-}
-
-function renderLabel(segment: SegmentLayout, centerX: number, centerY: number) {
-  const definition = elementDefinitions[segment.element.type]
-  const label = escapeXml(definition.label)
-  const widthLabel = escapeXml(formatMeters(segment.element.width))
-  const isNarrow = segment.width < 20
-
-  if (isNarrow) {
-    return `<g transform="translate(${centerX} ${centerY}) rotate(-90)">
-      <text text-anchor="middle" font-family="${svgSans}" font-size="3.7" font-weight="700" fill="${definition.textColor}">
-        ${escapeXml(definition.shortLabel.toUpperCase())} - ${widthLabel}
-      </text>
-    </g>`
-  }
-
-  return `<text x="${centerX}" y="${centerY - 1.5}" text-anchor="middle" font-family="${svgSans}" font-size="4.1" font-weight="800" fill="${definition.textColor}">
-    <tspan x="${centerX}" dy="0">${label}</tspan>
-    <tspan x="${centerX}" dy="5">${widthLabel}</tspan>
-  </text>`
 }
 
 function renderTreeDetail(
@@ -275,57 +261,87 @@ function renderTreeDetail(
   </g>`
 }
 
-function renderSymbol(segment: SegmentLayout, y: number, height: number) {
-  const x = round(segment.x)
-  const width = round(segment.width)
-  const baseY = y + height - 7
-  const centerY = y + height / 2
 
+function renderSegmentAnnotations(
+  layouts: SegmentLayout[],
+  guideY: number,
+  iconY: number,
+  labelY: number,
+) {
+  const guideMarkup = `<path d="M12 ${guideY} H${round(
+    layouts.length > 0 ? layouts[layouts.length - 1].x + layouts[layouts.length - 1].width + 12 : 248,
+  )}" stroke="#e5dfd5" stroke-width="0.6" />`
+
+  const itemsMarkup = layouts
+    .map((segment) => renderSegmentAnnotation(segment, iconY, labelY))
+    .join('')
+
+  return `${guideMarkup}${itemsMarkup}`
+}
+
+function renderSegmentAnnotation(
+  segment: SegmentLayout,
+  iconY: number,
+  labelY: number,
+) {
+  const definition = elementDefinitions[segment.element.type]
+  const centerX = round(segment.x + segment.width / 2)
+  const label =
+    segment.width < 18
+      ? definition.shortLabel.toUpperCase()
+      : definition.label
+  const treeNote =
+    segment.element.type === 'treeStrip' && segment.element.treeHeight !== undefined
+      ? `h ${formatMeters(segment.element.treeHeight)}`
+      : ''
+
+  return `<g data-annotation-index="${segment.sourceIndex + 1}">
+    ${renderLegendIcon(segment, centerX, iconY)}
+    <text x="${centerX}" y="${labelY}" text-anchor="middle" font-family="${svgSans}" font-size="3.5" font-weight="700" fill="#32403d">
+      ${escapeXml(label)}
+    </text>
+    ${
+      treeNote
+        ? `<text x="${centerX}" y="${round(labelY + 5)}" text-anchor="middle" font-family="${svgSans}" font-size="3.1" fill="#63706d">${escapeXml(treeNote)}</text>`
+        : ''
+    }
+  </g>`
+}
+
+function renderLegendIcon(segment: SegmentLayout, centerX: number, centerY: number) {
   switch (segment.element.type) {
     case 'lane':
-      return `<line x1="${x + 4}" y1="${centerY}" x2="${x + width - 4}" y2="${centerY}" stroke="rgba(255,255,255,0.58)" stroke-width="1.5" stroke-dasharray="5 4" />`
+      return `<line x1="${round(centerX - 7)}" y1="${centerY}" x2="${round(centerX + 7)}" y2="${centerY}" stroke="#5f696f" stroke-width="1.2" stroke-dasharray="4 3" />`
     case 'cycleway':
-      return renderRepeated(width, 18, (offsetX) => renderBikeIcon(x + offsetX, centerY))
+      return renderBikeIcon(centerX, centerY - 2)
     case 'sidewalk':
-      return renderRepeated(
-        width,
-        6.5,
-        (offsetX) =>
-          `<line x1="${x + offsetX}" y1="${y + 5}" x2="${x + offsetX}" y2="${y + height - 5}" stroke="rgba(89,75,57,0.22)" stroke-width="0.6" />`,
-      )
+      return `<g stroke="#8a7d69" stroke-width="0.8">
+        <line x1="${round(centerX - 4)}" y1="${round(centerY - 4)}" x2="${round(centerX - 4)}" y2="${round(centerY + 4)}" />
+        <line x1="${centerX}" y1="${round(centerY - 4)}" x2="${centerX}" y2="${round(centerY + 4)}" />
+        <line x1="${round(centerX + 4)}" y1="${round(centerY - 4)}" x2="${round(centerX + 4)}" y2="${round(centerY + 4)}" />
+      </g>`
+    case 'treeStrip': {
+      const symbol = treeSymbols[segment.sourceIndex % treeSymbols.length]
+      const scale = round(9 / symbol.height)
+      const x = round(centerX - (symbol.width * scale) / 2)
+      const y = round(centerY - 6)
+
+      return `<g transform="translate(${x} ${y}) scale(${scale} ${scale})">
+        <path d="${symbol.path}" fill="#2c4f37" opacity="0.92" />
+      </g>`
+    }
     case 'plantedBed':
-      return renderRepeated(width, 9, (offsetX) => renderLeafCluster(x + offsetX, baseY - 1))
+      return renderLeafCluster(centerX, centerY + 4)
     case 'lawn':
-      return renderRepeated(
-        width,
-        8,
-        (offsetX) =>
-          `<path d="M${x + offsetX} ${baseY} l1.8 -5 l1.7 5 l1.5 -4.2" fill="none" stroke="#668455" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" />`,
-      )
+      return `<path d="M${round(centerX - 4)} ${round(centerY + 4)} l1.6 -5 l1.6 5 l1.4 -4.1 l1.4 4.1 l1.6 -5 l1.7 5" fill="none" stroke="#668455" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" />`
     case 'bioswale':
-      return `<path d="M${x + 4} ${centerY + 6} C${x + width * 0.25} ${centerY - 1}, ${x + width * 0.5} ${centerY + 12}, ${x + width * 0.75} ${centerY + 3} S${x + width - 4} ${centerY + 7}, ${x + width - 4} ${centerY - 2}" fill="none" stroke="#628867" stroke-width="1.2" />
-        ${renderRepeated(
-          width,
-          12,
-          (offsetX) =>
-            `<path d="M${x + offsetX} ${baseY} l0.8 -4 l1.4 4 l1 -3.2" fill="none" stroke="#5b7857" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round" />`,
-        )}`
+      return `<path d="M${round(centerX - 8)} ${round(centerY + 2)} C${round(centerX - 3)} ${round(centerY - 4)}, ${round(centerX + 1)} ${round(centerY + 5)}, ${round(centerX + 8)} ${round(centerY - 1)}" fill="none" stroke="#628867" stroke-width="1.1" stroke-linecap="round" />`
     case 'streetFurniture':
-      return renderRepeated(width, 18, (offsetX) => renderFurnitureIcon(x + offsetX, baseY))
+      return renderFurnitureIcon(centerX, centerY + 3)
     case 'parking':
-      return renderRepeated(
-        width,
-        18,
-        (offsetX) =>
-          `<text x="${x + offsetX}" y="${centerY + 2}" text-anchor="middle" font-family="${svgSans}" font-size="5.6" font-weight="700" fill="rgba(46,52,57,0.35)">P</text>`,
-      )
+      return `<text x="${centerX}" y="${round(centerY + 2)}" text-anchor="middle" font-family="${svgSans}" font-size="6" font-weight="700" fill="#5d6870">P</text>`
     case 'median':
-      return renderRepeated(
-        width,
-        9,
-        (offsetX) =>
-          `<path d="M${x + offsetX - 2} ${y + 6} l4 6 l-4 6" fill="none" stroke="#ae9b7f" stroke-width="0.9" />`,
-      )
+      return `<path d="M${round(centerX - 5)} ${round(centerY - 4)} l4 6 l-4 6 M${round(centerX + 1)} ${round(centerY - 4)} l4 6 l-4 6" fill="none" stroke="#ae9b7f" stroke-width="0.9" />`
     default:
       return ''
   }
@@ -355,19 +371,6 @@ function renderFurnitureIcon(centerX: number, baselineY: number) {
     <path d="M4 -5 v7" />
     <circle cx="4" cy="-6.6" r="1.4" fill="rgba(129,95,68,0.18)" />
   </g>`
-}
-
-function renderRepeated(
-  width: number,
-  spacing: number,
-  renderItem: (offsetX: number, index: number) => string,
-) {
-  const count = Math.max(1, Math.floor(width / spacing))
-
-  return Array.from({ length: count }, (_, index) => {
-    const offsetX = round((width / (count + 1)) * (index + 1))
-    return renderItem(offsetX, index)
-  }).join('')
 }
 
 function renderDimensionLine(
