@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --paper: #f4f0e6;
+  --canvas: #fbfaf6;
+  --ink: #20312f;
+  --muted: #596a66;
+  --muted-soft: #7d8a84;
+  --accent: #1f6b61;
+  --line: rgba(32, 49, 47, 0.08);
+  --line-strong: rgba(32, 49, 47, 0.14);
+  --shadow: 0 28px 80px rgba(20, 38, 35, 0.12);
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Manrope', 'Segoe UI', sans-serif;
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  background:
+    radial-gradient(circle at top left, rgba(101, 144, 132, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(210, 193, 166, 0.28), transparent 28%),
+    linear-gradient(180deg, #f4efe6 0%, #f8f5ef 42%, #efede7 100%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 56px,
+    rgba(31, 63, 58, 0.03) 56px,
+    rgba(31, 63, 58, 0.03) 57px
+  );
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+body,
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+input,
+select {
+  color: inherit;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+#root {
+  isolation: isolate;
+}
