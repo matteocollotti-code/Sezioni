@@ -4,7 +4,7 @@ import {
   useMemo,
   useState,
 } from "react"
-import { Download, RotateCcw } from "lucide-react"
+import { Download, LoaderCircle, RotateCcw, Sparkles } from "lucide-react"
 
 import {
   calculateMetrics,
@@ -74,6 +74,12 @@ function formatSquareMeters(value: number) {
   return `${normalized.replace(".", ",")} mq`
 }
 
+interface AiIllustrationResult {
+  imageDataUrl: string
+  revisedPrompt?: string | null
+  sourceKey: string
+}
+
 function App() {
   const [projectTitle, setProjectTitle] = useState("Sezione urbana alberata")
   const [scale, setScale] = useState(100)
@@ -84,6 +90,14 @@ function App() {
   )
   const [elements, setElements] = useState<SectionElement[]>(() =>
     buildDefaultElements()
+  )
+  const [aiIllustration, setAiIllustration] = useState<AiIllustrationResult | null>(
+    null
+  )
+  const [isGeneratingAiIllustration, setIsGeneratingAiIllustration] =
+    useState(false)
+  const [aiIllustrationError, setAiIllustrationError] = useState<string | null>(
+    null
   )
   const [activeElementId, setActiveElementId] = useState<string | null>(null)
   const [summaryMode, setSummaryMode] = useState<"width" | "area">("width")
@@ -116,6 +130,22 @@ function App() {
   const usedTypes = Array.from(new Set(elements.map((element) => element.type)))
   const isSurfaceSummary = summaryMode === "area"
   const isSummaryVisible = previewPanel === "summary"
+  const currentIllustrationSourceKey = useMemo(
+    () =>
+      JSON.stringify({
+        projectTitle,
+        scale,
+        elements: elements.map((element) => ({
+          type: element.type,
+          width: Number(element.width.toFixed(2)),
+          treeHeight:
+            typeof element.treeHeight === "number"
+              ? Number(element.treeHeight.toFixed(2))
+              : null,
+        })),
+      }),
+    [elements, projectTitle, scale]
+  )
   const summaryTotalAmount = isSurfaceSummary
     ? Number((metrics.totalWidth * streetLength).toFixed(1))
     : metrics.totalWidth
@@ -142,10 +172,11 @@ function App() {
 
     return [item]
   })
-  const activeDownloadLabel =
-    previewVariant === "illustrated" ? "Scarica SVG illustrato" : "Scarica SVG clean"
+  const isAiIllustrationStale =
+    aiIllustration !== null && aiIllustration.sourceKey !== currentIllustrationSourceKey
   const previewVariantLabel =
     previewVariant === "illustrated" ? "illustrata" : "clean"
+  const svgDownloadLabel = "Scarica SVG clean"
 
   const updateScale = (value: number) => {
     if (Number.isFinite(value)) {
@@ -296,6 +327,66 @@ function App() {
     anchor.click()
     anchor.remove()
     URL.revokeObjectURL(objectUrl)
+  }
+
+  const downloadAiIllustration = () => {
+    if (!aiIllustration) {
+      return
+    }
+
+    const anchor = document.createElement("a")
+    anchor.href = aiIllustration.imageDataUrl
+    anchor.download = `${buildDownloadName(projectTitle, "illustrated")}-ai.png`
+    document.body.append(anchor)
+    anchor.click()
+    anchor.remove()
+  }
+
+  const generateAiIllustration = async () => {
+    setIsGeneratingAiIllustration(true)
+    setAiIllustrationError(null)
+
+    try {
+      const response = await fetch("/api/generate-illustration", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectTitle,
+          scale,
+          totalWidth: metrics.totalWidth,
+          elements,
+        }),
+      })
+
+      const payload = (await response.json()) as {
+        error?: string
+        imageDataUrl?: string
+        revisedPrompt?: string | null
+      }
+
+      if (!response.ok || !payload.imageDataUrl) {
+        throw new Error(
+          payload.error ??
+            "La generazione AI non è riuscita. Controlla la chiave OpenAI e riprova."
+        )
+      }
+
+      setAiIllustration({
+        imageDataUrl: payload.imageDataUrl,
+        revisedPrompt: payload.revisedPrompt ?? null,
+        sourceKey: currentIllustrationSourceKey,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "La generazione AI non è riuscita."
+      setAiIllustrationError(message)
+    } finally {
+      setIsGeneratingAiIllustration(false)
+    }
   }
 
   return (
@@ -472,10 +563,10 @@ function App() {
                 <Button
                   variant="outline"
                   className="bg-white/90 text-foreground shadow-sm hover:bg-white"
-                  onClick={() => downloadSvg(previewVariant)}
+                  onClick={() => downloadSvg("clean")}
                 >
                   <Download data-icon="inline-start" />
-                  {activeDownloadLabel}
+                  {svgDownloadLabel}
                 </Button>
               </div>
             </div>
@@ -487,7 +578,7 @@ function App() {
                     Variante disegno
                   </div>
                   <p className="text-sm leading-6 text-muted-foreground">
-                    Scegli la resa grafica da visualizzare e scaricare.
+                    `Clean` mostra l'SVG tecnico. `Illustrata` genera un render AI on demand.
                   </p>
                 </div>
                 <ToggleGroup
@@ -516,6 +607,15 @@ function App() {
               <Badge variant="outline">
                 {isSummaryVisible ? "summary" : `disegno ${previewVariantLabel}`}
               </Badge>
+              {!isSummaryVisible && previewVariant === "illustrated" ? (
+                <Badge variant="outline">
+                  {aiIllustration
+                    ? isAiIllustrationStale
+                      ? "illustrazione da aggiornare"
+                      : "illustrazione AI pronta"
+                    : "illustrazione AI"}
+                </Badge>
+              ) : null}
               {isSummaryVisible && isSurfaceSummary ? (
                 <Badge variant="outline">lunghezza {formatMeters(streetLength)}</Badge>
               ) : null}
@@ -597,6 +697,73 @@ function App() {
                   totalLabel={isSurfaceSummary ? "Superficie totale" : "Totale sezione"}
                   unit={isSurfaceSummary ? "mq" : "m"}
                 />
+              </div>
+            ) : previewVariant === "illustrated" ? (
+              <div className="flex flex-col gap-4 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(250,252,255,0.96),rgba(236,242,249,0.98))] p-4 shadow-inner sm:p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                      Render AI
+                    </div>
+                    <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                      Genera una versione illustrata con OpenAI a partire dalla sezione corrente. Lo `SVG clean` resta l'output tecnico da scaricare.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={generateAiIllustration} disabled={isGeneratingAiIllustration}>
+                      {isGeneratingAiIllustration ? (
+                        <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                      ) : (
+                        <Sparkles data-icon="inline-start" />
+                      )}
+                      {aiIllustration ? "Rigenera immagine AI" : "Genera illustrata AI"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={downloadAiIllustration}
+                      disabled={!aiIllustration}
+                    >
+                      <Download data-icon="inline-start" />
+                      Scarica PNG AI
+                    </Button>
+                  </div>
+                </div>
+
+                {aiIllustrationError ? (
+                  <div className="rounded-[22px] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive">
+                    {aiIllustrationError}
+                  </div>
+                ) : null}
+
+                <div className="overflow-hidden rounded-[24px] border border-border/60 bg-white">
+                  {aiIllustration ? (
+                    <img
+                      src={aiIllustration.imageDataUrl}
+                      alt={`Render AI della sezione ${projectTitle}`}
+                      className="block w-full bg-white object-contain"
+                    />
+                  ) : (
+                    <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                      <div className="rounded-full border border-border/70 bg-primary/5 p-3 text-primary">
+                        <Sparkles className="size-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-base font-medium text-foreground">
+                          Nessuna illustrazione AI generata
+                        </p>
+                        <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+                          Clicca il pulsante per creare una tavola illustrata più atmosferica, mantenendo il disegno tecnico separato nella variante clean.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {aiIllustration?.revisedPrompt ? (
+                  <div className="rounded-[22px] border border-border/70 bg-background/88 px-4 py-3 text-xs leading-6 text-muted-foreground">
+                    Prompt AI ottimizzato: {aiIllustration.revisedPrompt}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="select-none overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(250,252,255,0.96),rgba(236,242,249,0.98))] p-2 shadow-inner sm:p-2.5">
