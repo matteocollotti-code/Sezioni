@@ -469,7 +469,11 @@ function App() {
                   <ToggleGroupItem value="drawing">Disegno</ToggleGroupItem>
                   <ToggleGroupItem value="summary">Summary</ToggleGroupItem>
                 </ToggleGroup>
-                <Button onClick={() => downloadSvg(previewVariant)}>
+                <Button
+                  variant="outline"
+                  className="bg-white/90 text-foreground shadow-sm hover:bg-white"
+                  onClick={() => downloadSvg(previewVariant)}
+                >
                   <Download data-icon="inline-start" />
                   {activeDownloadLabel}
                 </Button>
