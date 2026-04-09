@@ -14,11 +14,13 @@ export interface SectionElement {
   id: string
   type: ElementType
   width: number
+  treeHeight?: number
 }
 
 export interface SectionPresetItem {
   type: ElementType
   width: number
+  treeHeight?: number
 }
 
 export interface SectionPreset {
@@ -39,6 +41,12 @@ export interface ElementDefinition {
   fill: string
   stroke: string
   textColor: string
+  treeHeightControl?: {
+    defaultValue: number
+    min: number
+    max: number
+    step: number
+  }
 }
 
 export interface SectionMetrics {

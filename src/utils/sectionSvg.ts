@@ -3,10 +3,12 @@ import {
   elementDefinitions,
   paletteOrder,
 } from '../data/sectionLibrary'
+import { treeSymbols } from '../data/treeSymbols'
 import type { ExportModel, ExportVariant, SectionElement } from '../types'
 
 interface SegmentLayout {
   element: SectionElement
+  sourceIndex: number
   x: number
   width: number
 }
@@ -22,24 +24,16 @@ export function generateRoadSectionSvg(
   const metrics = calculateMetrics(elements)
   const totalWidthMm = toScaleMillimeters(metrics.totalWidth, safeScale)
   const canvasWidth = round(Math.max(totalWidthMm + 48, 260))
-  const canvasHeight = 150
   const drawingX = round((canvasWidth - totalWidthMm) / 2)
-  const sectionY = 56
   const sectionHeight = 44
-  const sectionBottom = sectionY + sectionHeight
-  const topDimensionY = sectionY - 11
-  const totalDimensionY = sectionBottom + 18
-  const scaleBarY = totalDimensionY + 12
-  const isClean = variant === 'clean'
-  const subtitle = isClean
-    ? `SVG clean in scala 1:${safeScale}`
-    : `SVG vettoriale illustrato in scala 1:${safeScale}`
+  const headerDividerY = 34
 
   let currentX = drawingX
-  const layouts = elements.map<SegmentLayout>((element) => {
+  const layouts = elements.map<SegmentLayout>((element, sourceIndex) => {
     const width = toScaleMillimeters(element.width, safeScale)
     const layout = {
       element,
+      sourceIndex,
       x: currentX,
       width,
     }
@@ -48,28 +42,44 @@ export function generateRoadSectionSvg(
     return layout
   })
 
-  const segmentDimensions = layouts
-    .filter((segment) => segment.width >= 12)
-    .map((segment) =>
-      renderDimensionLine(
-        segment.x,
-        segment.x + segment.width,
-        sectionY,
-        topDimensionY,
-        formatMeters(segment.element.width),
-      ),
-    )
-    .join('')
+  const maxTreeHeightMm = layouts.reduce((maxHeight, segment) => {
+    if (segment.element.type !== 'treeStrip') {
+      return maxHeight
+    }
+
+    return Math.max(maxHeight, getTreeHeightMm(segment.element, safeScale))
+  }, 0)
+
+  const sectionBottom = round(Math.max(100, headerDividerY + maxTreeHeightMm + 20))
+  const sectionY = round(sectionBottom - sectionHeight)
+  const segmentDimensionY = round(sectionBottom + 16)
+  const totalDimensionY = round(segmentDimensionY + 18)
+  const scaleBarY = round(totalDimensionY + 14)
+  const canvasHeight = round(scaleBarY + 18)
+  const isClean = variant === 'clean'
+  const subtitle = isClean
+    ? `SVG clean in scala 1:${safeScale}`
+    : `SVG vettoriale illustrato in scala 1:${safeScale}`
+  const tallestTreeMeters = layouts.reduce((maxHeight, segment) => {
+    if (segment.element.type !== 'treeStrip') {
+      return maxHeight
+    }
+
+    return Math.max(maxHeight, segment.element.treeHeight ?? 0)
+  }, 0)
 
   const usedTypes = paletteOrder.filter((type) =>
     layouts.some((segment) => segment.element.type === type),
   )
+
   const elementLayersMarkup = usedTypes
     .map((type) => {
       const definition = elementDefinitions[type]
       const layerMarkup = layouts
         .filter((segment) => segment.element.type === type)
-        .map((segment) => renderSegment(segment, sectionY, sectionHeight, variant))
+        .map((segment) =>
+          renderSegment(segment, sectionY, sectionHeight, sectionBottom, safeScale, variant),
+        )
         .join('')
 
       return renderLayer(
@@ -80,9 +90,29 @@ export function generateRoadSectionSvg(
     })
     .join('')
 
-  const legendSummary =
-    `${metrics.totalWidth.toFixed(1)} m complessivi - ${metrics.greenWidth.toFixed(1)} m di verde`
-      .replaceAll('.', ',')
+  const segmentDimensions = layouts
+    .filter((segment) => segment.width >= 12)
+    .map((segment) =>
+      renderDimensionLine(
+        segment.x,
+        segment.x + segment.width,
+        sectionBottom,
+        segmentDimensionY,
+        formatMeters(segment.element.width),
+      ),
+    )
+    .join('')
+
+  const legendParts = [
+    `${metrics.totalWidth.toFixed(1)} m complessivi`,
+    `${metrics.greenWidth.toFixed(1)} m di verde`,
+  ]
+
+  if (tallestTreeMeters > 0) {
+    legendParts.push(`alberi fino a ${tallestTreeMeters.toFixed(1)} m`)
+  }
+
+  const legendSummary = legendParts.join(' - ').replaceAll('.', ',')
 
   const scaleBarMeters =
     metrics.totalWidth >= 18 ? 5 : metrics.totalWidth >= 10 ? 2 : 1
@@ -105,7 +135,7 @@ export function generateRoadSectionSvg(
     'Sfondo',
     `<rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="16" fill="#fcfaf6" />
   <rect x="6" y="6" width="${canvasWidth - 12}" height="${canvasHeight - 12}" rx="12" fill="none" stroke="#dcd6c9" stroke-width="0.6" />
-  <path d="M12 34 H${canvasWidth - 12}" stroke="#e5dfd5" stroke-width="0.6" />`,
+  <path d="M12 ${headerDividerY} H${canvasWidth - 12}" stroke="#e5dfd5" stroke-width="0.6" />`,
   )}
   ${renderLayer(
     'header',
@@ -113,10 +143,10 @@ export function generateRoadSectionSvg(
     `<text x="${drawingX}" y="18" font-family="${svgSerif}" font-size="10" font-weight="700" fill="#1f302e">${escapeXml(projectTitle)}</text>
   <text x="${drawingX}" y="27" font-family="${svgSans}" font-size="4.1" letter-spacing="0.28" fill="#63706d">${escapeXml(subtitle)}</text>
   <text x="${canvasWidth - drawingX}" y="18" text-anchor="end" font-family="${svgSans}" font-size="4.6" font-weight="700" fill="#20312f">${escapeXml(formatMeters(metrics.totalWidth))}</text>
-  <text x="${canvasWidth - drawingX}" y="27" text-anchor="end" font-family="${svgSans}" font-size="4.1" fill="#63706d">${metrics.greenWidth.toFixed(1).replace('.', ',')} m di verde - ${elements.length} fasce</text>`,
+  <text x="${canvasWidth - drawingX}" y="27" text-anchor="end" font-family="${svgSans}" font-size="4.1" fill="#63706d">${escapeXml(legendSummary)}</text>`,
   )}
-  ${renderLayer('dimensions-elements', 'Quote elementi', segmentDimensions)}
   ${elementLayersMarkup}
+  ${renderLayer('dimensions-elements', 'Quote elementi', segmentDimensions)}
   ${renderLayer(
     'dimensions-total',
     'Quote totali',
@@ -159,6 +189,8 @@ function renderSegment(
   segment: SegmentLayout,
   y: number,
   height: number,
+  sectionBottom: number,
+  scale: number,
   variant: ExportVariant,
 ) {
   const definition = elementDefinitions[segment.element.type]
@@ -169,9 +201,14 @@ function renderSegment(
   const isClean = variant === 'clean'
   const labelMarkup = isClean ? '' : renderLabel(segment, centerX, centerY)
   const symbolMarkup = isClean ? '' : renderSymbol(segment, y, height)
+  const treeMarkup =
+    segment.element.type === 'treeStrip'
+      ? renderTreeDetail(segment, sectionBottom, scale, variant)
+      : ''
 
-  return `<g>
+  return `<g id="segment-${segment.sourceIndex + 1}" data-segment-index="${segment.sourceIndex + 1}" data-type="${escapeXml(segment.element.type)}">
     <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="3.8" fill="${definition.fill}" stroke="${definition.stroke}" stroke-width="0.7" />
+    ${treeMarkup}
     ${symbolMarkup}
     ${labelMarkup}
   </g>`
@@ -197,6 +234,47 @@ function renderLabel(segment: SegmentLayout, centerX: number, centerY: number) {
   </text>`
 }
 
+function renderTreeDetail(
+  segment: SegmentLayout,
+  sectionBottom: number,
+  scale: number,
+  variant: ExportVariant,
+) {
+  const treeHeightMeters = getTreeHeightMeters(segment.element)
+  const treeHeightMm = toScaleMillimeters(treeHeightMeters, scale)
+  const groundY = round(sectionBottom - 2)
+  const topY = round(groundY - treeHeightMm)
+  const dimensionX = round(segment.x + Math.max(5, Math.min(segment.width - 5, segment.width * 0.84)))
+  const dimensionMarkup = renderVerticalDimensionLine(
+    dimensionX,
+    topY,
+    groundY,
+    `H ${formatMeters(treeHeightMeters)}`,
+  )
+
+  if (variant === 'clean') {
+    return dimensionMarkup
+  }
+
+  const symbol = treeSymbols[segment.sourceIndex % treeSymbols.length]
+  const treeWidthMm = clampNumber(
+    round(treeHeightMm * 0.62),
+    Math.max(segment.width * 1.5, 30),
+    Math.max(segment.width * 3.1, 42),
+  )
+  const xScale = round(treeWidthMm / symbol.width)
+  const yScale = round(treeHeightMm / symbol.height)
+  const treeX = round(segment.x + segment.width / 2 - treeWidthMm / 2)
+  const treeY = topY
+
+  return `<g data-tree-source="${escapeXml(symbol.name)}">
+    <g transform="translate(${treeX} ${treeY}) scale(${xScale} ${yScale})">
+      <path d="${symbol.path}" fill="#1d2f26" opacity="0.92" />
+    </g>
+    ${dimensionMarkup}
+  </g>`
+}
+
 function renderSymbol(segment: SegmentLayout, y: number, height: number) {
   const x = round(segment.x)
   const width = round(segment.width)
@@ -215,15 +293,6 @@ function renderSymbol(segment: SegmentLayout, y: number, height: number) {
         (offsetX) =>
           `<line x1="${x + offsetX}" y1="${y + 5}" x2="${x + offsetX}" y2="${y + height - 5}" stroke="rgba(89,75,57,0.22)" stroke-width="0.6" />`,
       )
-    case 'treeStrip':
-      return renderRepeated(width, 18, (offsetX, index) => {
-        const treeX = x + offsetX
-        const treeY = baseY - (index % 2) * 3
-        return `<g>
-          <circle cx="${treeX}" cy="${treeY - 6}" r="5" fill="rgba(72,112,67,0.28)" stroke="#4a7750" stroke-width="0.7" />
-          <rect x="${treeX - 0.6}" y="${treeY - 1}" width="1.2" height="6" fill="#6d533a" />
-        </g>`
-      })
     case 'plantedBed':
       return renderRepeated(width, 9, (offsetX) => renderLeafCluster(x + offsetX, baseY - 1))
     case 'lawn':
@@ -319,10 +388,40 @@ function renderDimensionLine(
   </g>`
 }
 
+function renderVerticalDimensionLine(
+  x: number,
+  y1: number,
+  y2: number,
+  label: string,
+) {
+  const safeLabel = escapeXml(label)
+  const centerY = round((y1 + y2) / 2)
+  const labelX = round(x + 6)
+
+  return `<g>
+    <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#5f696f" stroke-width="0.9" marker-start="url(#arrow-start)" marker-end="url(#arrow-end)" />
+    <line x1="${x - 2.8}" y1="${y1}" x2="${x + 2.8}" y2="${y1}" stroke="#c4beb3" stroke-width="0.7" />
+    <line x1="${x - 2.8}" y1="${y2}" x2="${x + 2.8}" y2="${y2}" stroke="#c4beb3" stroke-width="0.7" />
+    <text x="${labelX}" y="${centerY}" transform="rotate(-90 ${labelX} ${centerY})" text-anchor="middle" font-family="${svgSans}" font-size="3.8" fill="#63706d">${safeLabel}</text>
+  </g>`
+}
+
 function renderLayer(id: string, label: string, content: string) {
   return `<g id="layer-${id}" data-layer="${escapeXml(label)}" inkscape:groupmode="layer" inkscape:label="${escapeXml(label)}">
     ${content}
   </g>`
+}
+
+function getTreeHeightMeters(element: SectionElement) {
+  return (
+    element.treeHeight ??
+    elementDefinitions.treeStrip.treeHeightControl?.defaultValue ??
+    12
+  )
+}
+
+function getTreeHeightMm(element: SectionElement, scale: number) {
+  return toScaleMillimeters(getTreeHeightMeters(element), scale)
 }
 
 function toScaleMillimeters(widthInMeters: number, scale: number) {
@@ -355,4 +454,8 @@ function slugify(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
 }

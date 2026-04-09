@@ -69,6 +69,12 @@ export const elementDefinitions: Record<ElementType, ElementDefinition> = {
     fill: '#d7e6ce',
     stroke: '#8eaa82',
     textColor: '#244122',
+    treeHeightControl: {
+      defaultValue: 12,
+      min: 4,
+      max: 25,
+      step: 0.5,
+    },
   },
   plantedBed: {
     label: 'Aiuola',
@@ -151,7 +157,7 @@ export const sectionPresets: SectionPreset[] = [
     summary: 'Due carreggiate, filari e ciclabile protetta in un profilo ampio ma sobrio.',
     elements: [
       { type: 'sidewalk', width: 3 },
-      { type: 'treeStrip', width: 2.4 },
+      { type: 'treeStrip', width: 2.4, treeHeight: 12 },
       { type: 'cycleway', width: 2.2 },
       { type: 'lane', width: 3.4 },
       { type: 'lane', width: 3.4 },
@@ -159,7 +165,7 @@ export const sectionPresets: SectionPreset[] = [
       { type: 'lane', width: 3.4 },
       { type: 'lane', width: 3.4 },
       { type: 'cycleway', width: 2.2 },
-      { type: 'treeStrip', width: 2.4 },
+      { type: 'treeStrip', width: 2.4, treeHeight: 12 },
       { type: 'sidewalk', width: 3 },
     ],
   },
@@ -171,7 +177,7 @@ export const sectionPresets: SectionPreset[] = [
       { type: 'sidewalk', width: 2.5 },
       { type: 'bioswale', width: 2.2 },
       { type: 'cycleway', width: 3 },
-      { type: 'treeStrip', width: 2.6 },
+      { type: 'treeStrip', width: 2.6, treeHeight: 14 },
       { type: 'lane', width: 3.3 },
       { type: 'lane', width: 3.3 },
       { type: 'lawn', width: 3 },
@@ -217,13 +223,36 @@ export function clampWidth(type: ElementType, value: number) {
   return Number(clampedValue.toFixed(1))
 }
 
-export function createSectionElement(type: ElementType, width: number): SectionElement {
+export function clampTreeHeight(type: ElementType, value: number) {
+  const control = elementDefinitions[type].treeHeightControl
+
+  if (!control) {
+    return undefined
+  }
+
+  const clampedValue = Math.min(control.max, Math.max(control.min, value))
+  return Number(clampedValue.toFixed(1))
+}
+
+export function getDefaultTreeHeight(type: ElementType) {
+  return elementDefinitions[type].treeHeightControl?.defaultValue
+}
+
+export function createSectionElement(
+  type: ElementType,
+  width: number,
+  treeHeight?: number,
+): SectionElement {
   return {
     id:
       globalThis.crypto?.randomUUID?.() ??
       `segment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     type,
     width: clampWidth(type, width),
+    treeHeight:
+      treeHeight !== undefined
+        ? clampTreeHeight(type, treeHeight)
+        : getDefaultTreeHeight(type),
   }
 }
 

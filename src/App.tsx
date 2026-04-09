@@ -2,9 +2,11 @@ import { startTransition, useDeferredValue, useMemo, useState } from 'react'
 import './App.css'
 import {
   calculateMetrics,
+  clampTreeHeight,
   clampWidth,
   createSectionElement,
   elementDefinitions,
+  getDefaultTreeHeight,
   paletteOrder,
   scalePresets,
   sectionPresets,
@@ -26,7 +28,7 @@ function App() {
   const [previewVariant, setPreviewVariant] = useState<ExportVariant>('illustrated')
   const [elements, setElements] = useState(() =>
     defaultPreset.elements.map((item) =>
-      createSectionElement(item.type, item.width),
+      createSectionElement(item.type, item.width, item.treeHeight),
     ),
   )
 
@@ -52,7 +54,9 @@ function App() {
       setSelectedPresetId(preset.id)
       setProjectTitle(preset.name)
       setElements(
-        preset.elements.map((item) => createSectionElement(item.type, item.width)),
+        preset.elements.map((item) =>
+          createSectionElement(item.type, item.width, item.treeHeight),
+        ),
       )
     })
   }
@@ -86,6 +90,13 @@ function App() {
       ...element,
       type: nextType,
       width: clampWidth(nextType, element.width),
+      treeHeight:
+        nextType === 'treeStrip'
+          ? clampTreeHeight(
+              nextType,
+              element.treeHeight ?? getDefaultTreeHeight(nextType) ?? 12,
+            )
+          : undefined,
     }))
   }
 
@@ -99,6 +110,19 @@ function App() {
     updateElement(id, (element) => ({
       ...element,
       width: clampWidth(element.type, parsedValue),
+    }))
+  }
+
+  const handleTreeHeightChange = (id: string, rawValue: string) => {
+    const parsedValue = Number.parseFloat(rawValue)
+
+    if (!Number.isFinite(parsedValue)) {
+      return
+    }
+
+    updateElement(id, (element) => ({
+      ...element,
+      treeHeight: clampTreeHeight(element.type, parsedValue),
     }))
   }
 
@@ -370,6 +394,9 @@ function App() {
                       <div className="element-row__actions">
                         <span className="element-row__value">
                           {formatMeters(element.width)}
+                          {element.type === 'treeStrip' && element.treeHeight !== undefined
+                            ? ` | h ${formatMeters(element.treeHeight)}`
+                            : ''}
                         </span>
                         <button
                           aria-label={`Rimuovi ${definition.label}`}
@@ -399,6 +426,23 @@ function App() {
                       />
                     </label>
 
+                    {definition.treeHeightControl && element.treeHeight !== undefined ? (
+                      <label className="range-field">
+                        <span>Altezza alberi</span>
+                        <input
+                          className="range-field__input"
+                          type="range"
+                          min={definition.treeHeightControl.min}
+                          max={definition.treeHeightControl.max}
+                          step={definition.treeHeightControl.step}
+                          value={element.treeHeight}
+                          onChange={(event) =>
+                            handleTreeHeightChange(element.id, event.target.value)
+                          }
+                        />
+                      </label>
+                    ) : null}
+
                     <div className="element-row__footer">
                       <label className="number-field">
                         <span>Metri</span>
@@ -414,6 +458,23 @@ function App() {
                           }
                         />
                       </label>
+
+                      {definition.treeHeightControl && element.treeHeight !== undefined ? (
+                        <label className="number-field">
+                          <span>Altezza m</span>
+                          <input
+                            className="field__input"
+                            type="number"
+                            min={definition.treeHeightControl.min}
+                            max={definition.treeHeightControl.max}
+                            step={definition.treeHeightControl.step}
+                            value={element.treeHeight}
+                            onChange={(event) =>
+                              handleTreeHeightChange(element.id, event.target.value)
+                            }
+                          />
+                        </label>
+                      ) : null}
 
                       <div className="move-cluster">
                         <button
@@ -501,6 +562,7 @@ function App() {
               {previewVariant === 'clean'
                 ? 'mantiene solo campiture, quote e misure per facilitare la postproduzione.'
                 : 'mantiene una simbologia vettoriale piu ricca per presentazioni e concept.'}
+              {' '}Le silhouette degli alberi derivano dal file <code>misto.ai</code> e l'altezza e parametrica.
             </p>
 
             <div className="legend-row" role="list" aria-label="Legenda elementi usati">
