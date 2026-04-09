@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react"
 
 import { elementDefinitions, paletteOrder } from "@/data/sectionLibrary"
 import type { ElementType, SectionElement } from "@/types"
+import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -124,6 +125,7 @@ export function SelectionInspector({
                   max={activeDefinition.max}
                   step={activeDefinition.step}
                   unitLabel="m"
+                  showTicks
                   onChange={(value) => onWidthChange(activeElement.id, value)}
                 />
 
@@ -195,6 +197,7 @@ interface RangeFieldProps {
   max: number
   step: number
   unitLabel: string
+  showTicks?: boolean
   onChange: (value: number) => void
 }
 
@@ -206,8 +209,11 @@ function RangeField({
   max,
   step,
   unitLabel,
+  showTicks = false,
   onChange,
 }: RangeFieldProps) {
+  const ticks = showTicks ? buildTickValues(min, max, step) : []
+
   return (
     <Field>
       <div className="flex items-center justify-between gap-3">
@@ -224,6 +230,8 @@ function RangeField({
           min={min}
           max={max}
           step={step}
+          showTooltip
+          tooltipContent={(currentValue) => formatMeters(currentValue)}
           onValueChange={(values) => {
             const nextValue = values[0]
             if (nextValue !== undefined) {
@@ -232,6 +240,28 @@ function RangeField({
           }}
           aria-label={label}
         />
+
+        {showTicks ? (
+          <span
+            className="mt-1 flex w-full items-center justify-between gap-1 px-2.5 text-[11px] font-medium text-muted-foreground"
+            aria-hidden="true"
+          >
+            {ticks.map((tick, index) => (
+              <span
+                key={`${id}-tick-${tick}`}
+                className="flex w-0 flex-col items-center justify-center gap-2"
+              >
+                <span
+                  className={cn(
+                    "w-px bg-muted-foreground/70",
+                    index === 0 || index === ticks.length - 1 ? "h-2" : "h-1"
+                  )}
+                />
+                <span>{formatTickLabel(tick)}</span>
+              </span>
+            ))}
+          </span>
+        ) : null}
 
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <Input
@@ -253,4 +283,25 @@ function RangeField({
       </div>
     </Field>
   )
+}
+
+function buildTickValues(min: number, max: number, step: number) {
+  const intervals = 4
+  const values = Array.from({ length: intervals + 1 }, (_, index) => {
+    const rawValue = min + ((max - min) / intervals) * index
+    return roundToStep(rawValue, step)
+  })
+
+  return Array.from(new Set(values))
+}
+
+function roundToStep(value: number, step: number) {
+  const precision = step < 1 ? 10 : 1
+  return Math.round(Math.round(value / step) * step * precision) / precision
+}
+
+function formatTickLabel(value: number) {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(1).replace(/\.0$/, "").replace(".", ",")
 }
