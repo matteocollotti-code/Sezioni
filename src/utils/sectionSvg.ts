@@ -3,7 +3,6 @@ import {
   elementDefinitions,
   paletteOrder,
 } from "../data/sectionLibrary"
-import { treeIllustrations } from "../data/treeIllustrations"
 import { urbanIconSymbols } from "../data/urbanIconSymbols"
 import type { ExportModel, ExportVariant, SectionElement } from "../types"
 
@@ -45,6 +44,10 @@ const svgPalette = {
   parkingMark: "#eef4fb",
   medianPost: "#41576f",
   shadow: "#102132",
+  treeTrunk: "#53463d",
+  treeCanopyDark: "#294c56",
+  treeCanopyMid: "#3f6971",
+  treeCanopyLight: "#6f96a0",
 }
 
 export function generateRoadSectionSvg(
@@ -184,13 +187,6 @@ export function generateRoadSectionSvg(
     <marker id="arrow-end" viewBox="0 0 10 10" refX="5.2" refY="5" markerWidth="5" markerHeight="5" orient="auto">
       <path d="M0 0 L10 5 L0 10" fill="none" stroke="${svgPalette.dimension}" stroke-width="1.1" />
     </marker>
-    <filter id="tree-ink" color-interpolation-filters="sRGB">
-      <feFlood flood-color="#17283f" result="tree-color" />
-      <feComposite in="tree-color" in2="SourceAlpha" operator="in" result="tree-shape" />
-      <feMerge>
-        <feMergeNode in="tree-shape" />
-      </feMerge>
-    </filter>
   </defs>
   ${renderLayer(
     "background",
@@ -646,35 +642,118 @@ function renderTreeDetail(
     return dimensionMarkup
   }
 
-  const illustration = treeIllustrations[segment.sourceIndex % treeIllustrations.length]
-  const aspectRatio = illustration.cropWidth / illustration.cropHeight
-  const naturalWidthMm = treeHeightMm * aspectRatio
+  const treeVariant = segment.sourceIndex % 3
+  const widthFactor = treeVariant === 2 ? 0.56 : treeVariant === 1 ? 0.72 : 0.84
+  const naturalWidthMm = treeHeightMm * widthFactor
   const treeWidthMm = clampNumber(
     round(naturalWidthMm),
     Math.max(segment.width * 1.2, 18),
     Math.max(segment.width * 2.8, 76)
   )
-  const treeX = round(segment.x + segment.width / 2 - treeWidthMm / 2)
+  const treeCenterX = round(segment.x + segment.width / 2)
 
-  return `<g data-tree-source="${escapeXml(illustration.name)}">
-    <ellipse cx="${round(segment.x + segment.width / 2)}" cy="${round(
+  return `<g data-tree-variant="${treeVariant}">
+    <ellipse cx="${treeCenterX}" cy="${round(
     sectionBottom - 4.1
   )}" rx="${round(Math.max(segment.width * 0.36, 3.2))}" ry="1.9" fill="${svgPalette.shadow}" opacity="0.12" />
-    ${renderTreeIllustration(illustration, treeX, topY, treeWidthMm, treeHeightMm)}
+    ${renderVectorTree(treeVariant, treeCenterX, groundY, treeWidthMm, treeHeightMm)}
     ${dimensionMarkup}
   </g>`
 }
 
-function renderTreeIllustration(
-  illustration: (typeof treeIllustrations)[number],
-  x: number,
-  y: number,
+function renderVectorTree(
+  variantIndex: number,
+  centerX: number,
+  groundY: number,
   width: number,
   height: number
 ) {
-  return `<svg x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" viewBox="${illustration.cropX} ${illustration.cropY} ${illustration.cropWidth} ${illustration.cropHeight}" preserveAspectRatio="xMidYMax meet" overflow="visible">
-    <image href="${illustration.href}" width="${illustration.sourceWidth}" height="${illustration.sourceHeight}" filter="url(#tree-ink)" preserveAspectRatio="xMidYMid meet" />
-  </svg>`
+  const trunkHeight = clampNumber(round(height * 0.24), 4.5, 16)
+  const trunkWidth = clampNumber(round(width * 0.11), 1.8, 5.2)
+  const trunkX = round(centerX - trunkWidth / 2)
+  const trunkY = round(groundY - trunkHeight)
+  const canopyBottomY = trunkY + 1
+  const canopyTopY = round(groundY - height)
+
+  if (variantIndex === 2) {
+    const tierOneWidth = round(width * 0.92)
+    const tierTwoWidth = round(width * 0.72)
+    const tierThreeWidth = round(width * 0.5)
+
+    return `<g>
+      <rect x="${trunkX}" y="${trunkY}" width="${trunkWidth}" height="${trunkHeight}" rx="${round(
+      trunkWidth / 2
+    )}" fill="${svgPalette.treeTrunk}" />
+      <path d="M${round(centerX - tierOneWidth / 2)} ${canopyBottomY} L${centerX} ${round(
+      canopyTopY + height * 0.1
+    )} L${round(centerX + tierOneWidth / 2)} ${canopyBottomY} Z" fill="${svgPalette.treeCanopyDark}" />
+      <path d="M${round(centerX - tierTwoWidth / 2)} ${round(
+      canopyBottomY - height * 0.18
+    )} L${centerX} ${round(canopyTopY + height * 0.04)} L${round(
+      centerX + tierTwoWidth / 2
+    )} ${round(canopyBottomY - height * 0.18)} Z" fill="${svgPalette.treeCanopyMid}" />
+      <path d="M${round(centerX - tierThreeWidth / 2)} ${round(
+      canopyBottomY - height * 0.32
+    )} L${centerX} ${canopyTopY} L${round(centerX + tierThreeWidth / 2)} ${round(
+      canopyBottomY - height * 0.32
+    )} Z" fill="${svgPalette.treeCanopyLight}" opacity="0.95" />
+    </g>`
+  }
+
+  if (variantIndex === 1) {
+    const canopyWidth = round(width)
+    const crownHeight = round(height - trunkHeight + 2)
+    const leftX = round(centerX - canopyWidth / 2)
+    const rightX = round(centerX + canopyWidth / 2)
+    const midY = round(canopyTopY + crownHeight * 0.4)
+
+    return `<g>
+      <rect x="${trunkX}" y="${trunkY}" width="${trunkWidth}" height="${trunkHeight}" rx="${round(
+      trunkWidth / 2
+    )}" fill="${svgPalette.treeTrunk}" />
+      <path d="M${leftX} ${canopyBottomY}
+        C${round(centerX - canopyWidth * 0.62)} ${midY}, ${round(
+      centerX - canopyWidth * 0.28
+    )} ${canopyTopY}, ${centerX} ${canopyTopY}
+        C${round(centerX + canopyWidth * 0.24)} ${canopyTopY}, ${round(
+      centerX + canopyWidth * 0.58
+    )} ${midY}, ${rightX} ${canopyBottomY}
+        C${round(centerX + canopyWidth * 0.42)} ${round(
+      canopyBottomY - crownHeight * 0.06
+    )}, ${round(centerX + canopyWidth * 0.2)} ${round(
+      canopyBottomY + crownHeight * 0.12
+    )}, ${centerX} ${round(canopyBottomY + crownHeight * 0.08)}
+        C${round(centerX - canopyWidth * 0.2)} ${round(
+      canopyBottomY + crownHeight * 0.12
+    )}, ${round(centerX - canopyWidth * 0.44)} ${round(
+      canopyBottomY - crownHeight * 0.04
+    )}, ${leftX} ${canopyBottomY} Z" fill="${svgPalette.treeCanopyDark}" />
+      <ellipse cx="${round(centerX - canopyWidth * 0.16)}" cy="${round(
+      canopyTopY + crownHeight * 0.28
+    )}" rx="${round(canopyWidth * 0.23)}" ry="${round(crownHeight * 0.22)}" fill="${svgPalette.treeCanopyLight}" opacity="0.74" />
+      <ellipse cx="${round(centerX + canopyWidth * 0.18)}" cy="${round(
+      canopyTopY + crownHeight * 0.42
+    )}" rx="${round(canopyWidth * 0.2)}" ry="${round(crownHeight * 0.18)}" fill="${svgPalette.treeCanopyMid}" opacity="0.72" />
+    </g>`
+  }
+
+  return `<g>
+    <rect x="${trunkX}" y="${trunkY}" width="${trunkWidth}" height="${trunkHeight}" rx="${round(
+    trunkWidth / 2
+  )}" fill="${svgPalette.treeTrunk}" />
+    <ellipse cx="${centerX}" cy="${round(canopyBottomY - height * 0.38)}" rx="${round(
+    width * 0.44
+  )}" ry="${round(height * 0.3)}" fill="${svgPalette.treeCanopyDark}" />
+    <ellipse cx="${round(centerX - width * 0.24)}" cy="${round(
+    canopyBottomY - height * 0.28
+  )}" rx="${round(width * 0.24)}" ry="${round(height * 0.2)}" fill="${svgPalette.treeCanopyMid}" />
+    <ellipse cx="${round(centerX + width * 0.24)}" cy="${round(
+    canopyBottomY - height * 0.24
+  )}" rx="${round(width * 0.22)}" ry="${round(height * 0.18)}" fill="${svgPalette.treeCanopyMid}" />
+    <ellipse cx="${centerX}" cy="${round(canopyBottomY - height * 0.47)}" rx="${round(
+    width * 0.2
+  )}" ry="${round(height * 0.14)}" fill="${svgPalette.treeCanopyLight}" opacity="0.84" />
+  </g>`
 }
 
 function renderSegmentAnnotations(
@@ -749,18 +828,7 @@ function renderLegendIcon(segment: SegmentLayout, centerX: number, centerY: numb
       )}" y2="${round(centerY + 4)}" />
       </g>`
     case "treeStrip": {
-      const illustration =
-        treeIllustrations[segment.sourceIndex % treeIllustrations.length]
-      const targetHeight = 11
-      const targetWidth = round((illustration.cropWidth / illustration.cropHeight) * targetHeight)
-
-      return renderTreeIllustration(
-        illustration,
-        centerX - targetWidth / 2,
-        centerY - 7.5,
-        targetWidth,
-        targetHeight
-      )
+      return renderVectorTree(segment.sourceIndex % 3, centerX, centerY + 5.5, 9.5, 11)
     }
     case "plantedBed":
       return renderImportedIcon(
