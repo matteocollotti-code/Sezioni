@@ -4,6 +4,7 @@ import {
   paletteOrder,
 } from '../data/sectionLibrary'
 import { treeSymbols } from '../data/treeSymbols'
+import { urbanIconSymbols } from '../data/urbanIconSymbols'
 import type { ExportModel, ExportVariant, SectionElement } from '../types'
 
 interface SegmentLayout {
@@ -331,13 +332,25 @@ function renderLegendIcon(segment: SegmentLayout, centerX: number, centerY: numb
       </g>`
     }
     case 'plantedBed':
-      return renderLeafCluster(centerX, centerY + 4)
+      return renderImportedIcon(
+        urbanIconSymbols.plantedBed,
+        centerX,
+        centerY + 1,
+        11,
+        '#527052',
+      )
     case 'lawn':
       return `<path d="M${round(centerX - 4)} ${round(centerY + 4)} l1.6 -5 l1.6 5 l1.4 -4.1 l1.4 4.1 l1.6 -5 l1.7 5" fill="none" stroke="#668455" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" />`
     case 'bioswale':
       return `<path d="M${round(centerX - 8)} ${round(centerY + 2)} C${round(centerX - 3)} ${round(centerY - 4)}, ${round(centerX + 1)} ${round(centerY + 5)}, ${round(centerX + 8)} ${round(centerY - 1)}" fill="none" stroke="#628867" stroke-width="1.1" stroke-linecap="round" />`
     case 'streetFurniture':
-      return renderFurnitureIcon(centerX, centerY + 3)
+      return renderImportedIcon(
+        urbanIconSymbols.streetFurniture,
+        centerX,
+        centerY + 2,
+        10,
+        '#815f44',
+      )
     case 'parking':
       return `<text x="${centerX}" y="${round(centerY + 2)}" text-anchor="middle" font-family="${svgSans}" font-size="6" font-weight="700" fill="#5d6870">P</text>`
     case 'median':
@@ -356,20 +369,21 @@ function renderBikeIcon(centerX: number, centerY: number) {
   </g>`
 }
 
-function renderLeafCluster(centerX: number, baselineY: number) {
-  return `<g transform="translate(${centerX} ${baselineY})" stroke="#527052" stroke-width="0.7" fill="rgba(110,148,88,0.12)" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M0 0 c1.8 -3.5 4.2 -3.4 5.1 0 c-2.1 0.8 -3.8 1 -5.1 0z" />
-    <path d="M0 0 c-1.6 -3.2 -3.9 -3 -4.8 0 c1.9 0.8 3.5 1 4.8 0z" />
-    <path d="M0 0 v4.2" />
-  </g>`
-}
+function renderImportedIcon(
+  symbol: { name: string; width: number; height: number; path: string },
+  centerX: number,
+  centerY: number,
+  targetHeight: number,
+  fill: string,
+) {
+  const scale = round(targetHeight / symbol.height)
+  const width = round(symbol.width * scale)
+  const height = round(symbol.height * scale)
+  const x = round(centerX - width / 2)
+  const y = round(centerY - height / 2)
 
-function renderFurnitureIcon(centerX: number, baselineY: number) {
-  return `<g transform="translate(${centerX} ${baselineY})" stroke="#815f44" stroke-width="0.8" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M-4 0 h6 v-2.4 h-6 z" fill="rgba(129,95,68,0.16)" />
-    <path d="M-3.2 0 v2.4 M1.2 0 v2.4" />
-    <path d="M4 -5 v7" />
-    <circle cx="4" cy="-6.6" r="1.4" fill="rgba(129,95,68,0.18)" />
+  return `<g data-icon-source="${escapeXml(symbol.name)}" transform="translate(${x} ${y}) scale(${scale} ${scale})">
+    <path d="${symbol.path}" fill="${fill}" opacity="0.9" />
   </g>`
 }
 
