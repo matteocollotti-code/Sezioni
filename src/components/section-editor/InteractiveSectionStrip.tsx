@@ -98,7 +98,7 @@ export function InteractiveSectionStrip({
 
   if (elements.length === 0 || totalWidth <= 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-border bg-muted/35 px-4 py-8 text-center text-sm leading-6 text-muted-foreground">
+      <div className="select-none rounded-[28px] border border-dashed border-border bg-muted/35 px-4 py-8 text-center text-sm leading-6 text-muted-foreground">
         Nessuna fascia presente. Aggiungi un elemento per iniziare a comporre la
         sezione.
       </div>
@@ -108,7 +108,7 @@ export function InteractiveSectionStrip({
   const stripWidth = getInteractiveStripWidth(totalWidth)
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(247,245,240,0.94))] p-3">
+    <div className="select-none overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(247,245,240,0.94))] p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
         <span>Trascina la fascia per spostarla</span>
         <span>Tira la maniglia destra per ridimensionarla</span>
@@ -141,6 +141,7 @@ export function InteractiveSectionStrip({
                     return
                   }
 
+                  event.preventDefault()
                   onSelect(element.id)
                   setInteraction({
                     mode: "move",
@@ -208,6 +209,7 @@ export function InteractiveSectionStrip({
                 <span
                   role="presentation"
                   onPointerDown={(event) => {
+                    event.preventDefault()
                     event.stopPropagation()
                     onSelect(element.id)
                     setInteraction({
