@@ -21,10 +21,8 @@ import type {
   ElementType,
   ExportVariant,
   SectionElement,
-  SectionPreset,
 } from "./types"
 import { buildDownloadName, generateRoadSectionSvg } from "./utils/sectionSvg"
-import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -57,8 +55,8 @@ import { SelectionInspector } from "./components/section-editor/SelectionInspect
 const defaultPreset = sectionPresets[0]
 const defaultStreetLength = 120
 
-function buildPresetElements(preset: SectionPreset) {
-  return preset.elements.map((item) =>
+function buildDefaultElements() {
+  return defaultPreset.elements.map((item) =>
     createSectionElement(item.type, item.width, item.treeHeight)
   )
 }
@@ -79,14 +77,13 @@ function formatSquareMeters(value: number) {
 function App() {
   const [projectTitle, setProjectTitle] = useState("Sezione urbana alberata")
   const [scale, setScale] = useState(100)
-  const [selectedPresetId, setSelectedPresetId] = useState(defaultPreset.id)
   const [previewVariant, setPreviewVariant] =
     useState<ExportVariant>("illustrated")
   const [previewPanel, setPreviewPanel] = useState<"drawing" | "summary">(
     "drawing"
   )
   const [elements, setElements] = useState<SectionElement[]>(() =>
-    buildPresetElements(defaultPreset)
+    buildDefaultElements()
   )
   const [activeElementId, setActiveElementId] = useState<string | null>(null)
   const [summaryMode, setSummaryMode] = useState<"width" | "area">("width")
@@ -150,19 +147,6 @@ function App() {
   const previewVariantLabel =
     previewVariant === "illustrated" ? "illustrata" : "clean"
 
-  const markAsCustom = () => setSelectedPresetId("custom")
-
-  const applyPreset = (preset: SectionPreset) => {
-    const nextElements = buildPresetElements(preset)
-
-    startTransition(() => {
-      setSelectedPresetId(preset.id)
-      setProjectTitle(preset.name)
-      setElements(nextElements)
-      setActiveElementId(nextElements[0]?.id ?? null)
-    })
-  }
-
   const updateScale = (value: number) => {
     if (Number.isFinite(value)) {
       setScale(Math.min(500, Math.max(25, Math.round(value))))
@@ -176,7 +160,6 @@ function App() {
     setElements((current) =>
       current.map((element) => (element.id === id ? updater(element) : element))
     )
-    markAsCustom()
   }
 
   const handleTypeChange = (id: string, nextType: ElementType) => {
@@ -223,7 +206,6 @@ function App() {
       return next
     })
     setActiveElementId(id)
-    markAsCustom()
   }
 
   const reorderElement = (id: string, targetIndex: number) => {
@@ -245,7 +227,6 @@ function App() {
       return next
     })
     setActiveElementId(id)
-    markAsCustom()
   }
 
   const resizeElement = (id: string, value: number) => {
@@ -271,7 +252,6 @@ function App() {
     })
 
     setActiveElementId(nextActiveId)
-    markAsCustom()
   }
 
   const addElement = (type: ElementType) => {
@@ -291,14 +271,16 @@ function App() {
     })
 
     setActiveElementId(nextElement.id)
-    markAsCustom()
   }
 
-  const resetCurrentPreset = () => {
-    const fallbackPreset =
-      sectionPresets.find((preset) => preset.id === selectedPresetId) ??
-      defaultPreset
-    applyPreset(fallbackPreset)
+  const resetSection = () => {
+    const nextElements = buildDefaultElements()
+
+    startTransition(() => {
+      setProjectTitle(defaultPreset.name)
+      setElements(nextElements)
+      setActiveElementId(nextElements[0]?.id ?? null)
+    })
   }
 
   const downloadSvg = (variant: ExportVariant) => {
@@ -370,66 +352,27 @@ function App() {
               <FieldDescription>Le scale rapide restano qui sotto.</FieldDescription>
             </Field>
             <div className="flex items-end">
-              <Button variant="outline" onClick={resetCurrentPreset}>
+              <Button variant="outline" onClick={resetSection}>
                 <RotateCcw data-icon="inline-start" />
-                Ripristina preset
+                Ripristina sezione
               </Button>
             </div>
           </FieldGroup>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                  Preset iniziali
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Parti da un profilo esistente oppure continua in modalita personalizzata.
-                </p>
-              </div>
-              <Badge variant={selectedPresetId === "custom" ? "outline" : "secondary"}>
-                {selectedPresetId === "custom" ? "personalizzata" : "preset"}
-              </Badge>
-            </div>
-            <div className="grid gap-2 lg:grid-cols-3">
-              {sectionPresets.map((preset) => (
-                <Button
-                  key={preset.id}
-                  variant={selectedPresetId === preset.id ? "default" : "outline"}
-                  className="h-auto w-full justify-start px-3 py-3 text-left"
-                  onClick={() => applyPreset(preset)}
-                >
-                  <div className="flex flex-col items-start gap-1">
-                    <span className="text-sm font-medium">{preset.name}</span>
-                    <span
-                      className={cn(
-                        "text-xs leading-5",
-                        selectedPresetId === preset.id
-                          ? "text-primary-foreground/78"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {preset.summary}
-                    </span>
-                  </div>
-                </Button>
-              ))}
-            </div>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
-              value={String(scale)}
-              onValueChange={(value) => value && updateScale(Number(value))}
-              className="flex flex-wrap gap-2"
-            >
-              {scalePresets.map((scalePreset) => (
-                <ToggleGroupItem key={scalePreset} value={String(scalePreset)}>
-                  1:{scalePreset}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={String(scale)}
+            onValueChange={(value) => value && updateScale(Number(value))}
+            className="flex flex-wrap gap-2"
+          >
+            {scalePresets.map((scalePreset) => (
+              <ToggleGroupItem key={scalePreset} value={String(scalePreset)}>
+                1:{scalePreset}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
       </header>
 
