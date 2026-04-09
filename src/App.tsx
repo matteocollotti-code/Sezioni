@@ -4,7 +4,7 @@ import {
   useMemo,
   useState,
 } from "react"
-import { Download, LoaderCircle, RotateCcw, Sparkles } from "lucide-react"
+import { Download, RotateCcw, Sparkles } from "lucide-react"
 
 import {
   calculateMetrics,
@@ -46,6 +46,7 @@ import {
   SectionSummaryCard,
   type SectionSummaryItem,
 } from "@/components/ui/section-summary-card"
+import { OrbitalLoader } from "@/components/ui/orbital-loader"
 import { MetricPanel, MiniMetric } from "./components/section-editor/EditorMetrics"
 import { DimensionRangeField } from "./components/section-editor/DimensionRangeField"
 import { formatDrawingMm, formatMeters } from "./components/section-editor/editorHelpers"
@@ -711,11 +712,7 @@ function App() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button onClick={generateAiIllustration} disabled={isGeneratingAiIllustration}>
-                      {isGeneratingAiIllustration ? (
-                        <LoaderCircle data-icon="inline-start" className="animate-spin" />
-                      ) : (
-                        <Sparkles data-icon="inline-start" />
-                      )}
+                      <Sparkles data-icon="inline-start" />
                       {aiIllustration ? "Rigenera immagine AI" : "Genera illustrata AI"}
                     </Button>
                     <Button
@@ -736,7 +733,14 @@ function App() {
                 ) : null}
 
                 <div className="overflow-hidden rounded-[24px] border border-border/60 bg-white">
-                  {aiIllustration ? (
+                  {isGeneratingAiIllustration ? (
+                    <div className="flex min-h-[420px] items-center justify-center px-6 py-12">
+                      <OrbitalLoader
+                        className="h-20 w-20 text-foreground"
+                        message="Genero l'illustrazione AI"
+                      />
+                    </div>
+                  ) : aiIllustration ? (
                     <img
                       src={aiIllustration.imageDataUrl}
                       alt={`Render AI della sezione ${projectTitle}`}
