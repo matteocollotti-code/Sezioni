@@ -82,7 +82,9 @@ function App() {
   const [selectedPresetId, setSelectedPresetId] = useState(defaultPreset.id)
   const [previewVariant, setPreviewVariant] =
     useState<ExportVariant>("illustrated")
-  const [isSummaryVisible, setIsSummaryVisible] = useState(false)
+  const [previewPanel, setPreviewPanel] = useState<"drawing" | "summary">(
+    "drawing"
+  )
   const [elements, setElements] = useState<SectionElement[]>(() =>
     buildPresetElements(defaultPreset)
   )
@@ -116,6 +118,7 @@ function App() {
   const isPreviewPending = deferredModel !== exportModel
   const usedTypes = Array.from(new Set(elements.map((element) => element.type)))
   const isSurfaceSummary = summaryMode === "area"
+  const isSummaryVisible = previewPanel === "summary"
   const summaryTotalAmount = isSurfaceSummary
     ? Number((metrics.totalWidth * streetLength).toFixed(1))
     : metrics.totalWidth
@@ -142,6 +145,10 @@ function App() {
 
     return [item]
   })
+  const activeDownloadLabel =
+    previewVariant === "illustrated" ? "Scarica SVG illustrato" : "Scarica SVG clean"
+  const previewVariantLabel =
+    previewVariant === "illustrated" ? "illustrata" : "clean"
 
   const markAsCustom = () => setSelectedPresetId("custom")
 
@@ -504,7 +511,38 @@ function App() {
                   La tavola vettoriale resta sincronizzata con la sezione cliccabile.
                 </p>
               </div>
-              <div className="flex flex-col gap-3 sm:items-end">
+              <div className="flex flex-col gap-3 lg:items-end">
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  size="sm"
+                  value={previewPanel}
+                  onValueChange={(value) =>
+                    (value === "drawing" || value === "summary") &&
+                    setPreviewPanel(value)
+                  }
+                  className="flex flex-wrap gap-2"
+                >
+                  <ToggleGroupItem value="drawing">Disegno</ToggleGroupItem>
+                  <ToggleGroupItem value="summary">Summary</ToggleGroupItem>
+                </ToggleGroup>
+                <Button onClick={() => downloadSvg(previewVariant)}>
+                  <Download data-icon="inline-start" />
+                  {activeDownloadLabel}
+                </Button>
+              </div>
+            </div>
+
+            {!isSummaryVisible ? (
+              <div className="flex flex-col gap-3 rounded-[24px] border border-border/70 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                    Variante disegno
+                  </div>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Scegli la resa grafica da visualizzare e scaricare.
+                  </p>
+                </div>
                 <ToggleGroup
                   type="single"
                   variant="outline"
@@ -517,26 +555,10 @@ function App() {
                   className="flex flex-wrap gap-2"
                 >
                   <ToggleGroupItem value="illustrated">Illustrata</ToggleGroupItem>
-                <ToggleGroupItem value="clean">Clean</ToggleGroupItem>
+                  <ToggleGroupItem value="clean">Clean</ToggleGroupItem>
                 </ToggleGroup>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={isSummaryVisible ? "secondary" : "outline"}
-                    onClick={() => setIsSummaryVisible((current) => !current)}
-                  >
-                    {isSummaryVisible ? "Disegno" : "Summary"}
-                  </Button>
-                  <Button onClick={() => downloadSvg("illustrated")}>
-                    <Download data-icon="inline-start" />
-                    SVG illustrato
-                  </Button>
-                  <Button variant="outline" onClick={() => downloadSvg("clean")}>
-                    <Download data-icon="inline-start" />
-                    SVG clean
-                  </Button>
-                </div>
               </div>
-            </div>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={isPreviewPending ? "outline" : "secondary"}>
@@ -544,10 +566,12 @@ function App() {
               </Badge>
               <Badge variant="outline">1:{scale}</Badge>
               <Badge variant="outline">{elements.length} fasce</Badge>
+              <Badge variant="outline">
+                {isSummaryVisible ? "summary" : `disegno ${previewVariantLabel}`}
+              </Badge>
               {isSummaryVisible && isSurfaceSummary ? (
                 <Badge variant="outline">lunghezza {formatMeters(streetLength)}</Badge>
               ) : null}
-              {isSummaryVisible ? <Badge variant="outline">summary</Badge> : null}
             </div>
 
             {isSummaryVisible ? (
@@ -625,8 +649,6 @@ function App() {
                   data={summaryData}
                   totalLabel={isSurfaceSummary ? "Superficie totale" : "Totale sezione"}
                   unit={isSurfaceSummary ? "mq" : "m"}
-                  buttonText="Torna al disegno"
-                  onButtonClick={() => setIsSummaryVisible(false)}
                 />
               </div>
             ) : (
