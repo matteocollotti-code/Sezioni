@@ -197,6 +197,36 @@ function App() {
     markAsCustom()
   }
 
+  const reorderElement = (id: string, targetIndex: number) => {
+    setElements((current) => {
+      const currentIndex = current.findIndex((element) => element.id === id)
+
+      if (
+        currentIndex === -1 ||
+        targetIndex < 0 ||
+        targetIndex >= current.length ||
+        targetIndex === currentIndex
+      ) {
+        return current
+      }
+
+      const next = [...current]
+      const [moved] = next.splice(currentIndex, 1)
+      next.splice(targetIndex, 0, moved)
+      return next
+    })
+    setActiveElementId(id)
+    markAsCustom()
+  }
+
+  const resizeElement = (id: string, value: number) => {
+    updateElement(id, (element) => ({
+      ...element,
+      width: clampWidth(element.type, value),
+    }))
+    setActiveElementId(id)
+  }
+
   const removeElement = (id: string) => {
     let nextActiveId: string | null = null
 
@@ -396,6 +426,8 @@ function App() {
               totalWidth={metrics.totalWidth}
               activeElementId={resolvedActiveElementId}
               onSelect={setActiveElementId}
+              onResize={resizeElement}
+              onReorder={reorderElement}
             />
 
             <Separator />
@@ -498,16 +530,6 @@ function App() {
                 dangerouslySetInnerHTML={{ __html: svgMarkup }}
               />
             </div>
-
-            <p className="text-sm leading-6 text-muted-foreground">
-              La variante{" "}
-              <span className="font-medium text-foreground">
-                {previewVariant === "clean" ? "clean" : "illustrata"}
-              </span>{" "}
-              {previewVariant === "clean"
-                ? "mantiene campiture, quote e misure per una postproduzione rapida."
-                : "usa alberi derivati da misto.ai, icone da Balshi_Icon Database_2D.ai e un impianto grafico tecnico ispirato a 260407_Benghazi Street Sections.ai."}
-            </p>
 
             {isSummaryVisible ? (
               <SectionSummaryCard

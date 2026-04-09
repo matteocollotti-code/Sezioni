@@ -218,9 +218,8 @@ const activeMobilityTypes = new Set<ElementType>(['cycleway', 'sidewalk'])
 const vehicularTypes = new Set<ElementType>(['lane', 'parking'])
 
 export function clampWidth(type: ElementType, value: number) {
-  const definition = elementDefinitions[type]
-  const clampedValue = Math.min(definition.max, Math.max(definition.min, value))
-  return Number(clampedValue.toFixed(1))
+  const normalizedValue = Number.isFinite(value) ? value : elementDefinitions[type].defaultWidth
+  return Number(Math.max(0.1, normalizedValue).toFixed(1))
 }
 
 export function clampTreeHeight(type: ElementType, value: number) {

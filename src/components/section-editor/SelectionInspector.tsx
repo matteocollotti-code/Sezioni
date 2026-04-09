@@ -121,10 +121,11 @@ export function SelectionInspector({
                   id={`width-${activeElement.id}`}
                   label="Larghezza"
                   value={activeElement.width}
-                  min={activeDefinition.min}
-                  max={activeDefinition.max}
+                  min={0.1}
+                  max={activeElement.width}
                   step={activeDefinition.step}
                   unitLabel="m"
+                  allowUnlimited
                   showTicks
                   onChange={(value) => onWidthChange(activeElement.id, value)}
                 />
@@ -197,6 +198,7 @@ interface RangeFieldProps {
   max: number
   step: number
   unitLabel: string
+  allowUnlimited?: boolean
   showTicks?: boolean
   onChange: (value: number) => void
 }
@@ -209,10 +211,12 @@ function RangeField({
   max,
   step,
   unitLabel,
+  allowUnlimited = false,
   showTicks = false,
   onChange,
 }: RangeFieldProps) {
-  const ticks = showTicks ? buildTickValues(min, max, step) : []
+  const sliderMax = allowUnlimited ? getSoftMax(value, max, min, step) : max
+  const ticks = showTicks ? buildTickValues(min, sliderMax, step) : []
 
   return (
     <Field>
@@ -228,7 +232,7 @@ function RangeField({
           id={id}
           value={[value]}
           min={min}
-          max={max}
+          max={sliderMax}
           step={step}
           showTooltip
           tooltipContent={(currentValue) => formatMeters(currentValue)}
@@ -268,7 +272,7 @@ function RangeField({
             id={`${id}-input`}
             type="number"
             min={min}
-            max={max}
+            max={allowUnlimited ? undefined : max}
             step={step}
             value={value}
             onChange={(event) => {
@@ -298,6 +302,11 @@ function buildTickValues(min: number, max: number, step: number) {
 function roundToStep(value: number, step: number) {
   const precision = step < 1 ? 10 : 1
   return Math.round(Math.round(value / step) * step * precision) / precision
+}
+
+function getSoftMax(value: number, max: number, min: number, step: number) {
+  const baseline = Math.max(max, min + step * 20)
+  return roundToStep(Math.max(baseline, value + step * 20, value * 1.35), step)
 }
 
 function formatTickLabel(value: number) {
